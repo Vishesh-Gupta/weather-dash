@@ -4,6 +4,24 @@ run:
 scheduler:
     uv run python -m src.data_collection.scheduler
 
+build:
+    docker build -t weather-wiz .
+
+docker-run:
+    docker run -p 8501:8501 weather-wiz
+
+docker-compose-up:
+    docker-compose up -d
+
+docker-compose-down:
+    docker-compose down
+
+docker-compose-logs:
+    docker-compose logs -f
+
+docker-compose-build:
+    docker-compose build
+
 test:
     uv run pytest tests/
 
@@ -23,7 +41,7 @@ install:
     uv sync
 
 setup-db:
-    uv run python -m src.db.setup
+    uv run python -m src.database.setup
 
 clean:
     rm -rf .venv
