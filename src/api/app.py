@@ -14,7 +14,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from src.api.frontend import SecurityHeadersMiddleware, mount_frontend
-from src.api.routes import collection, geocode, health, locations, session
+from src.api.routes import collection, geocode, health, locations, overview, session
 from src.database.setup import init_db
 from src.utils.config import Settings, get_settings
 
@@ -67,7 +67,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
 
     api = APIRouter(prefix="/api")
-    for module in (health, session, locations, geocode, collection):
+    for module in (health, session, overview, locations, geocode, collection):
         api.include_router(module.router)
     app.include_router(api)
 

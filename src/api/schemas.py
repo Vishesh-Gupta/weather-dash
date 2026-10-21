@@ -116,6 +116,41 @@ class CollectionRunOut(ORMModel):
     status: str
     locations_processed: int
     errors: str | None
+    kinds: str | None = Field(description="Comma-separated data kinds collected in the run")
+
+
+class ExtremeOut(ORMModel):
+    value: float
+    date: date
+
+
+class NormalOut(ORMModel):
+    """Typical weather for a date, from the same time of year in earlier years."""
+
+    date: date
+    years: int = Field(description="Number of earlier years the normal is based on")
+    temp_max: float | None
+    temp_min: float | None
+    temp_mean: float | None
+    precipitation: float | None = Field(description="Average daily precipitation, mm")
+    wet_day_chance: float | None = Field(description="Share of days with at least 1 mm (0–1)")
+    record_high: ExtremeOut | None
+    record_low: ExtremeOut | None
+
+
+class TodayRange(BaseModel):
+    high: float
+    low: float
+
+
+class OverviewItem(BaseModel):
+    location: LocationOut
+    current: ObservationOut | None
+    air_quality: AirQualityOut | None
+    today: TodayRange | None = Field(
+        description="Forecast high and low for the location's current day"
+    )
+    normal: NormalOut | None = Field(description="Normal for the location's current day")
 
 
 class SessionOut(BaseModel):
