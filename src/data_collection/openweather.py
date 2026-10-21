@@ -52,6 +52,7 @@ def parse_current(payload: dict[str, Any]) -> dict[str, Any]:
         "snow_1h": payload.get("snow", {}).get("1h"),
         "sunrise": _ts(sys.get("sunrise")),
         "sunset": _ts(sys.get("sunset")),
+        "utc_offset_seconds": payload.get("timezone"),
         **_weather_fields(payload),
     }
 

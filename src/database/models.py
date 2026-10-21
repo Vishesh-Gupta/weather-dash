@@ -62,6 +62,8 @@ class Location(Base):
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     history_backfilled_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    # Offset from UTC reported by OpenWeather, used to show times in local time.
+    utc_offset_seconds: Mapped[int | None]
 
     observations: Mapped[list["WeatherObservation"]] = relationship(
         back_populates="location", cascade="all, delete-orphan"

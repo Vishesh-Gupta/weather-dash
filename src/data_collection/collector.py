@@ -34,6 +34,8 @@ def collect_current_data(
 ) -> dict[str, int]:
     """Fetch current conditions, the 5-day forecast and air quality for one location."""
     current = client.current(location.lat, location.lon)
+    if (offset := current.pop("utc_offset_seconds", None)) is not None:
+        location.utc_offset_seconds = offset
     observations = insert_ignore(
         session,
         WeatherObservation,
