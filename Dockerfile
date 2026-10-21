@@ -50,6 +50,7 @@ COPY src/ src/
 RUN uv pip install -e .
 
 COPY config.yaml config.yaml
+COPY .streamlit/ .streamlit/
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app:$PYTHONPATH"

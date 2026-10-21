@@ -24,6 +24,7 @@ def isolated_settings(monkeypatch, tmp_path):
         "POSTGRES_DB",
         "SCHEDULER_INTERVAL_MINUTES",
         "WEATHER_CONFIG_PATH",
+        "ADMIN_PASSWORD",
     ):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv(
@@ -35,6 +36,10 @@ def isolated_settings(monkeypatch, tmp_path):
 
 
 def _clear_caches():
+    import streamlit as st
+
+    st.cache_data.clear()
+    st.cache_resource.clear()
     config.get_settings.cache_clear()
     if db_session.get_engine.cache_info().currsize:
         db_session.get_engine().dispose()

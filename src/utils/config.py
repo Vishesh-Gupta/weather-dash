@@ -28,6 +28,8 @@ class Settings:
     backfill_years: int
     scheduler_interval_minutes: int
     database_url: str
+    # When set, the dashboard is read-only until an admin signs in.
+    admin_password: str | None = None
 
 
 def load_yaml_config(path: Path | None = None) -> dict[str, Any]:
@@ -77,6 +79,7 @@ def get_settings() -> Settings:
             os.getenv("SCHEDULER_INTERVAL_MINUTES", scheduler.get("interval_minutes", 60))
         ),
         database_url=build_database_url(config.get("database", {})),
+        admin_password=os.getenv("ADMIN_PASSWORD") or None,
     )
 
 

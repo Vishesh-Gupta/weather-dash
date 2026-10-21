@@ -186,3 +186,50 @@ def test_app_search_and_track_location(app_db, monkeypatch):
 
     assert at.title[0].value == "Paris, Ile-de-France, FR"
     assert len(collected) == 1 and len(collected[0]) == 1
+
+
+def sidebar_labels(at: AppTest) -> set[str]:
+    return {b.label for b in at.sidebar.button} | {e.label for e in at.sidebar.expander}
+
+
+@pytest.fixture
+def public_mode(monkeypatch):
+    monkeypatch.setenv("WEATHER_API_KEY", "test")
+    monkeypatch.setenv("ADMIN_PASSWORD", "correct horse")
+    get_settings.cache_clear()
+
+
+def test_public_mode_hides_management_from_visitors(app_db, public_mode):
+    seed()
+    at = run_app()
+    labels = sidebar_labels(at)
+    assert "Admin sign-in" in labels
+    assert not labels & {"Add a location", "Manage locations", "Collect now"}
+    # Visitors still see the data.
+    assert at.title[0].value == "Toronto, Ontario, CA"
+
+
+def test_public_mode_empty_state(app_db, public_mode):
+    at = run_app()
+    assert any("No locations have been published yet" in i.value for i in at.info)
+
+
+def test_admin_sign_in_and_out(app_db, public_mode):
+    seed()
+    at = run_app()
+
+    password = next(t for t in at.sidebar.text_input if t.label == "Password")
+    password.input("wrong")
+    next(b for b in at.sidebar.button if b.label == "Sign in").click().run()
+    assert any("Incorrect password" in e.value for e in at.sidebar.error)
+    assert "Collect now" not in sidebar_labels(at)
+
+    password = next(t for t in at.sidebar.text_input if t.label == "Password")
+    password.input("correct horse")
+    next(b for b in at.sidebar.button if b.label == "Sign in").click().run()
+    assert not at.exception
+    labels = sidebar_labels(at)
+    assert {"Add a location", "Manage locations", "Collect now", "Sign out"} <= labels
+
+    next(b for b in at.sidebar.button if b.label == "Sign out").click().run()
+    assert "Collect now" not in sidebar_labels(at)

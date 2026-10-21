@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from src.dashboard import charts, data
+from src.dashboard.auth import LoginThrottle
 from src.dashboard.units import Units, UnitSystem, compass
 from src.data_collection.collector import run_collection
 from src.data_collection.openweather import OpenWeatherError
@@ -24,6 +25,9 @@ HISTORY_PRESETS = {
     "All": None,
 }
 OBSERVATION_WINDOWS = {"Last 24 hours": 1, "Last 7 days": 7, "Last 30 days": 30}
+# Collected data changes at most every scheduler interval, so short caching lets
+# many concurrent visitors share query results.
+CACHE_TTL_SECONDS = 300
 
 
 @st.cache_resource
@@ -36,9 +40,43 @@ def load_locations() -> list[Location]:
         return repository.list_locations(session)
 
 
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_resource
+def login_throttle() -> LoginThrottle:
+    return LoginThrottle()
+
+
+def _location_ref(location_id: int, utc_offset_seconds: int | None) -> Location:
+    # Cached functions take plain values; rebuild the minimal Location the queries use.
+    return Location(id=location_id, utc_offset_seconds=utc_offset_seconds)
+
+
+@st.cache_data(ttl=CACHE_TTL_SECONDS, show_spinner=False)
 def cached_history(location_id: int) -> pd.DataFrame:
     return data.daily_history(location_id)
+
+
+@st.cache_data(ttl=CACHE_TTL_SECONDS, show_spinner=False)
+def cached_forecast(location_id: int, utc_offset_seconds: int | None) -> pd.DataFrame:
+    return data.latest_forecast(_location_ref(location_id, utc_offset_seconds))
+
+
+@st.cache_data(ttl=CACHE_TTL_SECONDS, show_spinner=False)
+def cached_observations(
+    location_id: int, utc_offset_seconds: int | None, days: int
+) -> pd.DataFrame:
+    since = data.now_utc() - timedelta(days=days)
+    return data.observations(_location_ref(location_id, utc_offset_seconds), since)
+
+
+@st.cache_data(ttl=CACHE_TTL_SECONDS, show_spinner=False)
+def cached_air_quality(location_id: int, utc_offset_seconds: int | None, days: int) -> pd.DataFrame:
+    since = data.now_utc() - timedelta(days=days)
+    return data.air_quality(_location_ref(location_id, utc_offset_seconds), since)
+
+
+def clear_data_caches() -> None:
+    for fn in (cached_history, cached_forecast, cached_observations, cached_air_quality):
+        fn.clear()
 
 
 def collect(location_ids: list[int] | None = None) -> None:
@@ -48,7 +86,7 @@ def collect(location_ids: list[int] | None = None) -> None:
         except OpenWeatherError as exc:
             st.error(str(exc))
             return
-    cached_history.clear()
+    clear_data_caches()
     if run.status == "success":
         st.toast("Weather data updated")
     else:
@@ -108,11 +146,48 @@ def sidebar_manage_locations(locations: list[Location]) -> None:
             if button_col.button("Remove", key=f"remove-{location.id}"):
                 with session_scope() as session:
                     repository.delete_location(session, location.id)
-                cached_history.clear()
+                clear_data_caches()
                 st.rerun()
 
 
-def sidebar_collection_status(has_api_key: bool) -> None:
+def _sign_in(admin_password: str) -> None:
+    candidate = st.session_state.get("admin-password", "")
+    result = login_throttle().attempt(candidate, admin_password)
+    st.session_state.is_admin = result is True
+    st.session_state.sign_in_error = {
+        True: None,
+        False: "Incorrect password.",
+        None: "Too many failed attempts. Try again in a few minutes.",
+    }[result]
+
+
+def _sign_out() -> None:
+    st.session_state.is_admin = False
+
+
+def sidebar_admin(admin_password: str | None) -> None:
+    """Sign-in for public deployments. Does nothing when no admin password is configured.
+
+    Callbacks run before the script re-executes, so the rest of the page already
+    reflects the new sign-in state when it renders.
+    """
+    if not admin_password:
+        return
+    st.sidebar.divider()
+    if st.session_state.get("is_admin"):
+        st.sidebar.caption("🔓 Signed in as admin")
+        st.sidebar.button("Sign out", width="stretch", on_click=_sign_out)
+        return
+
+    with st.sidebar.expander("Admin sign-in"):
+        with st.form("admin-sign-in", border=False, clear_on_submit=True):
+            st.text_input("Password", type="password", key="admin-password")
+            st.form_submit_button("Sign in", on_click=_sign_in, args=(admin_password,))
+        if error := st.session_state.pop("sign_in_error", None):
+            st.error(error)
+
+
+def sidebar_collection_status(can_manage: bool) -> None:
     run = data.last_collection_run()
     st.sidebar.divider()
     if run:
@@ -122,7 +197,7 @@ def sidebar_collection_status(has_api_key: bool) -> None:
         )
     else:
         st.sidebar.caption("No data collected yet.")
-    if has_api_key and st.sidebar.button("Collect now", width="stretch"):
+    if can_manage and st.sidebar.button("Collect now", width="stretch"):
         collect()
         st.rerun()
 
@@ -174,7 +249,7 @@ def render_now(location: Location, units: Units) -> None:
         key="obs-window",
     )
     days = OBSERVATION_WINDOWS[window]
-    df = data.observations(location, data.now_utc() - timedelta(days=days))
+    df = cached_observations(location.id, location.utc_offset_seconds, days)
     if len(df) < 2:
         st.caption("The trend appears once the scheduler has collected a few observations.")
     else:
@@ -205,7 +280,7 @@ def forecast_summary(df: pd.DataFrame, units: Units) -> pd.DataFrame:
 
 
 def render_forecast(location: Location, units: Units) -> None:
-    df = data.latest_forecast(location)
+    df = cached_forecast(location.id, location.utc_offset_seconds)
     if df.empty:
         st.info("No forecast collected yet.")
         return
@@ -241,7 +316,7 @@ def aqi_badge(aqi: int) -> str:
 
 
 def render_air_quality(location: Location) -> None:
-    df = data.air_quality(location, data.now_utc() - timedelta(days=7))
+    df = cached_air_quality(location.id, location.utc_offset_seconds, 7)
     if df.empty:
         st.info("No air quality readings yet.")
         return
@@ -327,13 +402,15 @@ def render_history(location: Location, units: Units) -> None:
         )
 
 
-def render_empty_state(has_api_key: bool) -> None:
+def render_empty_state(has_api_key: bool, can_manage: bool) -> None:
     st.title("🌤️ Weather Analytics Dashboard")
     st.markdown(
         "Track locations to collect current conditions, 5-day forecasts and air quality from "
         "OpenWeather, with years of daily history from the Open-Meteo archive."
     )
-    if has_api_key:
+    if not can_manage:
+        st.info("No locations have been published yet. Check back soon.")
+    elif has_api_key:
         st.info("Add your first location from the sidebar to get started.")
     else:
         st.warning(
@@ -345,7 +422,10 @@ def render_empty_state(has_api_key: bool) -> None:
 def main() -> None:
     st.set_page_config(page_title="Weather Analytics", page_icon="🌤️", layout="wide")
     ensure_schema()
-    has_api_key = bool(get_settings().api_key)
+    settings = get_settings()
+    has_api_key = bool(settings.api_key)
+    # Without an admin password (local use) everyone can manage; otherwise only the admin.
+    can_manage = not settings.admin_password or st.session_state.get("is_admin", False)
 
     st.sidebar.title("🌤️ Weather Analytics")
     system = st.sidebar.radio(
@@ -368,12 +448,14 @@ def main() -> None:
         )
         st.session_state.selected_location_id = location.id
 
-    sidebar_add_location(has_api_key)
-    sidebar_manage_locations(locations)
-    sidebar_collection_status(has_api_key)
+    if can_manage:
+        sidebar_add_location(has_api_key)
+        sidebar_manage_locations(locations)
+    sidebar_collection_status(can_manage and has_api_key)
+    sidebar_admin(settings.admin_password)
 
     if location is None:
-        render_empty_state(has_api_key)
+        render_empty_state(has_api_key, can_manage)
         return
 
     st.title(location.display_name)
