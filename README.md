@@ -6,15 +6,22 @@ Track locations and explore their weather: current conditions, 5-day forecasts a
 collected from OpenWeather on a schedule, plus years of daily history from the Open-Meteo archive.
 Built to be hosted publicly: visitors browse, and only the admin manages what is tracked.
 
-![Overview of every location, each card tinted by its current sky](docs/screenshots/overview-light.png)
-![A location's live conditions and observed trend in dark mode](docs/screenshots/location-dark.png)
+![A clear afternoon: the sun on its arc between sunrise and sunset](docs/screenshots/location-day.png)
+![Rain falling across the page](docs/screenshots/location-rain.png)
+![A clear night with the moon in its current phase on the night arc](docs/screenshots/location-night.png)
 
 ## Features
 
 - **Live**: pages update on their own within seconds of new data being collected, with a live
   status indicator, ticking local clocks and "updated … ago" labels
-- **Overview**: every location as a card tinted by its current sky (clear, cloudy, rain, snow, mist,
-  day or night), with today's range and air quality
+- **The page is the sky**: the background follows the viewed location's conditions and time of
+  day (including dawn and dusk), with animated rain, snow, clouds, fog, stars and lightning that
+  follow the real intensity and wind direction
+- **Sun and moon**: a sunrise-to-sunset arc with the sun's live position, day length and a
+  countdown; at night the moon, drawn in its current phase, crosses the night arc
+- **One click or search away**: every location in a strip at the top with its live temperature,
+  plus search (admins can jump straight to adding an untracked place)
+- **Overview**: every location as a card tinted by its current sky, with today's range and air quality
 - **Now**: current conditions with an observed temperature trend (24 hours to 30 days)
 - **Forecast**: daily summary table plus 3-hourly temperature, chance of precipitation and rain/snow amounts
 - **Air quality**: OpenWeather AQI level, pollutant breakdown and PM2.5/PM10 trend
