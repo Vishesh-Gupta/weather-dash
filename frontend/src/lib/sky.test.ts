@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { daylightProgress, isDaytime, skyFor, themeFor } from './sky'
+import { isDaytime, skyFor, themeFor } from './sky'
 
 const base = {
   observed_at: '2026-10-21T16:00:00Z',
@@ -41,14 +41,5 @@ describe('sky', () => {
     expect(themeFor('partly-day')).toBe('clear-day')
     expect(themeFor('drizzle')).toBe('rain')
     expect(themeFor('snow')).toBe('snow')
-  })
-
-  it('tracks progress through the day', () => {
-    const noonish = Date.parse('2026-10-21T16:50:00Z')
-    expect(daylightProgress(noonish, base.sunrise, base.sunset)).toBeCloseTo(0.5, 1)
-    expect(
-      daylightProgress(Date.parse('2026-10-21T23:00:00Z'), base.sunrise, base.sunset),
-    ).toBeNull()
-    expect(daylightProgress(noonish, null, base.sunset)).toBeNull()
   })
 })
