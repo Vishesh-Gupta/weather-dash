@@ -7,6 +7,9 @@ install:
 run:
     uv run streamlit run src/dashboard/app.py
 
+api:
+    uv run uvicorn src.api.app:app --reload --port 8000
+
 scheduler:
     uv run python -m src.data_collection.scheduler
 

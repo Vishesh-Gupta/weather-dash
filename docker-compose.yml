@@ -44,6 +44,35 @@ services:
       - weather-network
     command: sh -c "uv pip install -e . && streamlit run src/dashboard/app.py --server.port=8501 --server.address=0.0.0.0"
 
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: weather-api
+    environment:
+      - WEATHER_API_KEY=${WEATHER_API_KEY}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-weather_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-weather_pass}
+      - POSTGRES_DB=${POSTGRES_DB:-weather_db}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - SESSION_SECRET=${SESSION_SECRET:-}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src:ro
+      - ./config.yaml:/app/config.yaml:ro
+    networks:
+      - weather-network
+    restart: unless-stopped
+    command: uvicorn src.api.app:app --host 0.0.0.0 --port 8000 --proxy-headers
+
   scheduler:
     build:
       context: .

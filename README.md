@@ -125,8 +125,31 @@ just run
 just scheduler
 ```
 
+## API
+
+The JSON API serves everything the dashboard shows. Run it with `just api` (or the `api`
+compose service) and browse the interactive docs at http://localhost:8000/api/docs.
+
+Values are metric and timestamps are UTC; each location includes its `utc_offset_seconds`.
+
+| Method | Path | Access |
+|---|---|---|
+| GET | `/api/health` | public |
+| GET | `/api/locations`, `/api/locations/{id}` | public |
+| GET | `/api/locations/{id}/current`, `/observations?days=`, `/forecast`, `/air-quality?days=`, `/history?start=&end=` | public |
+| GET | `/api/collection-runs/latest` | public |
+| GET / POST / DELETE | `/api/session` (read, sign in, sign out) | public |
+| GET | `/api/geocode?q=` | admin |
+| POST | `/api/locations`, `/api/collection-runs` | admin |
+| DELETE | `/api/locations/{id}` | admin |
+
+When `ADMIN_PASSWORD` is set, admin endpoints require signing in through `POST /api/session`,
+which sets an HTTP-only, `SameSite=Strict` session cookie. Without it (local use) every
+request is treated as admin.
+
 ## Architecture
 
+- **API**: FastAPI service exposing the collected data and admin operations
 - **Dashboard**: Streamlit application for visualizing weather data
 - **Scheduler**: Background service that periodically collects weather data for all tracked locations
 - **Database**: PostgreSQL database (or SQLite for local development)
