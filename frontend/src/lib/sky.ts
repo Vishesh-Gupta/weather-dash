@@ -18,7 +18,16 @@ export type Sky =
 
 /** Background theme for a sky; partly cloudy skies use the clear backgrounds. */
 export type SkyTheme =
-  'clear-day' | 'clear-night' | 'clouds-day' | 'clouds-night' | 'rain' | 'thunder' | 'snow' | 'mist'
+  | 'clear-day'
+  | 'clear-night'
+  | 'dawn'
+  | 'dusk'
+  | 'clouds-day'
+  | 'clouds-night'
+  | 'rain'
+  | 'thunder'
+  | 'snow'
+  | 'mist'
 
 type Conditions = Pick<
   Observation,
@@ -77,17 +86,4 @@ export function themeFor(sky: Sky): SkyTheme {
     default:
       return sky
   }
-}
-
-/** Fraction of daylight elapsed (0 at sunrise, 1 at sunset), or null outside daylight. */
-export function daylightProgress(
-  nowMs: number,
-  sunrise: string | null,
-  sunset: string | null,
-): number | null {
-  if (!sunrise || !sunset) return null
-  const start = Date.parse(sunrise)
-  const end = Date.parse(sunset)
-  if (nowMs < start || nowMs > end || end <= start) return null
-  return (nowMs - start) / (end - start)
 }
