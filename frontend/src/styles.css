@@ -10,7 +10,12 @@
   --glass: rgba(9, 13, 22, 0.62);
   --glass-strong: rgba(10, 15, 25, 0.92);
   --glass-hover: rgba(255, 255, 255, 0.08);
-  --glass-blur: blur(22px) saturate(1.25);
+  --glass-blur: blur(14px) saturate(1.35);
+  /* A one-pixel highlight along the top edge and a tight shadow below give panels
+     a crisp, physical edge against the sky instead of a soft haze. */
+  --glass-edge:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 1px 2px rgba(0, 0, 0, 0.3),
+    0 10px 28px rgba(0, 0, 0, 0.18);
   --text-primary: #ffffff;
   --text-secondary: #e2e8f0;
   --text-muted: #cbd5e1;
@@ -85,10 +90,20 @@ h3 {
 .switcher,
 .card,
 .tile,
+.instrument,
 .notice {
   background: var(--glass);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
+}
+
+.card,
+.tile,
+.instrument,
+.notice,
+.hero,
+.location-card {
+  box-shadow: var(--glass-edge);
 }
 
 /* --- The sky ------------------------------------------------------------------
@@ -992,6 +1007,292 @@ table.data tbody tr:last-child td {
 .wx-icon {
   flex: none;
   overflow: visible;
+}
+
+/* --- Instruments -------------------------------------------------------------------
+   One reading per tile: label, value with its unit, what it means, and a trend line
+   or meter along the bottom. */
+
+.instruments {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
+  gap: 12px;
+}
+
+.instrument {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 148px;
+  padding: 14px 16px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+}
+
+.instrument-label {
+  margin: 0;
+  font-size: var(--label-size);
+  letter-spacing: var(--label-spacing);
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.instrument-body {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.instrument-value {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 2rem;
+  font-weight: 300;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.instrument-unit {
+  font-size: 0.9375rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--text-secondary);
+}
+
+.instrument-detail {
+  margin-top: 4px;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.instrument-detail a {
+  color: var(--accent);
+}
+
+.instrument-visual {
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.trend-arrow {
+  display: inline-block;
+  width: 1em;
+  color: var(--text-primary);
+}
+
+.sparkline {
+  position: relative;
+  height: 28px;
+}
+
+.sparkline svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.sparkline-line {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.78);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.sparkline-area {
+  fill: rgba(255, 255, 255, 0.07);
+}
+
+.sparkline-end {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.18);
+}
+
+.meter {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.85);
+  transition: width 600ms ease;
+}
+
+.wind-dial {
+  flex: none;
+}
+
+.wind-dial-ring {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.22);
+  stroke-width: 1.2;
+}
+
+.wind-dial-tick,
+.wind-dial-north {
+  stroke: rgba(255, 255, 255, 0.45);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+}
+
+.wind-dial-north {
+  stroke: #ffffff;
+  stroke-width: 1.8;
+}
+
+.wind-dial-arrow {
+  transform-origin: 24px 24px;
+  transition: transform 900ms cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+
+.wind-dial-arrow line {
+  stroke: #ffffff;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.wind-dial-arrow path {
+  fill: #ffffff;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  vertical-align: 1px;
+  background: var(--text-muted);
+}
+
+.status-dot-good {
+  background: var(--status-good);
+}
+.status-dot-warning {
+  background: var(--status-warning);
+}
+.status-dot-serious {
+  background: var(--status-serious);
+}
+.status-dot-critical {
+  background: var(--status-critical);
+}
+
+/* A value just updated by live data: a brief brightening, then settled. */
+.live-changed {
+  animation: live-changed 1.4s ease-out;
+  border-radius: 4px;
+}
+
+@keyframes live-changed {
+  from {
+    background: rgba(255, 255, 255, 0.22);
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.22);
+  }
+  to {
+    background: transparent;
+    box-shadow: 0 0 0 4px transparent;
+  }
+}
+
+/* --- Next 24 hours ------------------------------------------------------------------ */
+
+.next-hours {
+  padding: 14px 18px 12px;
+}
+
+.next-hours ol {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(64px, 1fr));
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.next-hours li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0;
+  border-left: 1px solid var(--border);
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.next-hours li:first-child {
+  border-left: 0;
+}
+
+.next-hours-temp {
+  font-size: 1.125rem;
+  color: var(--text-primary);
+}
+
+.next-hours-pop {
+  min-height: 1.2em;
+  color: var(--accent);
+}
+
+/* --- Overview card stats ------------------------------------------------------------ */
+
+.card-stats {
+  display: flex;
+  gap: 18px;
+  margin: 2px 0 0;
+  font-size: 0.875rem;
+}
+
+.card-stats div {
+  display: flex;
+  flex-direction: column;
+}
+
+.card-stats dt {
+  font-size: var(--label-size);
+  letter-spacing: var(--label-spacing);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.card-stats dd {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.chip-warm::before {
+  background: #ff9f6b;
+}
+
+.chip-cold::before {
+  background: #8cc4ff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-changed {
+    animation: none;
+  }
+
+  .wind-dial-arrow,
+  .meter-fill {
+    transition: none;
+  }
 }
 
 /* --- Small screens ------------------------------------------------------------------ */

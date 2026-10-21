@@ -10,6 +10,8 @@ Built to be hosted publicly: visitors browse, and only the admin manages what is
 ![Toronto at sunset: the sky warming towards the horizon](docs/screenshots/location-sunset.png)
 ![Paris in rain: a grey overcast with rain falling](docs/screenshots/location-rain.png)
 ![Toronto at night: stars and the moon in its current phase](docs/screenshots/location-night.png)
+![Instruments: wind, humidity, pressure, precipitation, cloud, visibility, air quality and today against normal, under the next 24 hours](docs/screenshots/instruments.png)
+![The overview: every location's own sky with its key readings](docs/screenshots/overview.png)
 
 ## Features
 
@@ -26,8 +28,14 @@ Built to be hosted publicly: visitors browse, and only the admin manages what is
   and a countdown; after dark, the moon's phase and the time to sunrise
 - **One click or search away**: every location in a strip at the top with its live temperature,
   plus search (admins can jump straight to adding an untracked place)
-- **Overview**: every location as a card showing its own current sky, with today's range and air quality
-- **Now**: current conditions with an observed temperature trend (24 hours to 30 days)
+- **Overview**: every location as a card showing its own current sky, with feels-like, wind,
+  humidity, today's range, air quality and how today compares with normal
+- **Now**: current conditions, the next 24 hours, and an instrument for each reading that says
+  what it means: wind on the Beaufort scale with a direction dial, humidity with dew point and
+  how it feels, the 3-hour pressure tendency, rain or snow now or the chance in the next 6 hours,
+  cloud cover and visibility in words, air quality, and today against the climate normal and
+  record. Each shows a 24-hour trend line or meter and highlights briefly when live data changes
+  it. Plus an observed temperature trend (24 hours to 30 days)
 - **Forecast**: daily summary table plus 3-hourly temperature, chance of precipitation and rain/snow amounts
 - **Air quality**: OpenWeather AQI level, pollutant breakdown and PM2.5/PM10 trend
 - **History**: up to 5 years of daily data backfilled from Open-Meteo, with extremes, monthly

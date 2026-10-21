@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { mockApi, renderApp } from './test/app'
-import { adminSession, toronto } from './test/fixtures'
+import { adminSession, overviewItem, toronto } from './test/fixtures'
 
 beforeEach(() => {
   window.localStorage.clear()
@@ -35,14 +35,55 @@ describe('visitor views', () => {
     expect(within(hero).getByText(/Observed 10:00/)).toBeInTheDocument()
     expect(within(hero).getByText('07:24')).toBeInTheDocument()
     expect(within(hero).getByText('18:15')).toBeInTheDocument()
-    expect(screen.getByText('16 km/h WSW')).toBeInTheDocument()
+    const wind = screen.getByRole('region', { name: 'Wind' })
+    expect(wind).toHaveTextContent('16km/h')
+    expect(wind).toHaveTextContent('Gentle breeze · from WSW')
     expect(await screen.findByRole('img', { name: /Observed temperature/ })).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: '°F' }))
     expect(within(hero).getByText('63°')).toBeInTheDocument()
     expect(within(hero).getByText('Feels like 60°F')).toBeInTheDocument()
-    expect(screen.getByText('10 mph WSW')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Wind' })).toHaveTextContent('10mph')
     expect(window.localStorage.getItem('units')).toBe('imperial')
+  })
+
+  it('explains each reading and shows the next 24 hours', async () => {
+    mockApi({
+      'GET /api/overview': [
+        {
+          ...overviewItem(),
+          normal: {
+            date: '2026-10-21',
+            temp_max: 15.5,
+            temp_min: 6,
+            temp_mean: 10.5,
+            precipitation: 2,
+            wet_day_chance: 0.4,
+            record_high: { date: '2019-10-20', value: 24.1 },
+            record_low: { date: '2003-10-24', value: -2 },
+            years: 5,
+          },
+        },
+      ],
+    })
+    renderApp('/locations/1')
+    const region = (name: string) => screen.findByRole('region', { name })
+
+    // 65% at 17 °C: dew point 10 °C, comfortable.
+    expect(await region('Humidity')).toHaveTextContent('Comfortable · dew point 10°')
+    expect(await region('Pressure')).toHaveTextContent('Steady · ±0 hPa in 3 h')
+    expect(await region('Cloud cover')).toHaveTextContent('Partly cloudy')
+    expect(await region('Visibility')).toHaveTextContent('Excellent')
+    expect(await region('Air quality')).toHaveTextContent('FairAQI 2 of 5 · PM2.5 9 µg/m³')
+    // Today's forecast high 19° against a normal of 15.5°.
+    const versus = await region('Versus normal')
+    expect(versus).toHaveTextContent('+4°')
+    expect(versus).toHaveTextContent('Warmer than usual today')
+    expect(versus).toHaveTextContent('record 24° in 2019')
+
+    const hours = await region('Next 24 hours')
+    expect(within(hours).getAllByRole('listitem')).toHaveLength(8)
+    expect(within(hours).getByText('80%')).toBeInTheDocument()
   })
 
   it('remembers the unit preference', async () => {
