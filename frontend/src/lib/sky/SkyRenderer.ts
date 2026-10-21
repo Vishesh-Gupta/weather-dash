@@ -2,6 +2,7 @@
 // real sun and moon positions, clouds from reported cover, haze from visibility.
 
 import type { WeatherScene } from '../scene'
+import { FramePacer } from './pacer'
 import { CLOUD_SCALE, COMPOSITE, SKY_TEXTURE, VERTEX } from './shaders'
 
 const SKY_TEXTURE_SIZE = [512, 128] as const
@@ -9,9 +10,6 @@ const SKY_TEXTURE_SIZE = [512, 128] as const
 const HALF_FOV = (34 * Math.PI) / 180
 /** The bottom edge sits just above the horizon. */
 const PITCH = HALF_FOV + 0.01
-const FRAME_MS = 1000 / 30
-/** Slowest refresh when the device can't keep up; clouds drift slowly enough for it. */
-const SLOWEST_FRAME_MS = 1000
 const RAD = Math.PI / 180
 
 type Uniforms = Record<string, WebGLUniformLocation | null>
@@ -61,17 +59,12 @@ export class SkyRenderer {
   private scene: WeatherScene | null = null
   private skyKey = ''
   private frame = 0
-  private lastDraw = 0
   private running = false
   private readonly startedAt = performance.now()
   private nextFlash = 0
   private flashStarted = -1e9
   private flashTarget: [number, number] = [0, 0]
-  // Quality adapts to the device: frame interval, resolution, and a count of late frames.
-  private frameMs = FRAME_MS
-  private quality = 1
-  private late = 0
-  private lateTotal = 0
+  private readonly pacer = new FramePacer()
   private size: [number, number] = [0, 0]
 
   static create(canvas: HTMLCanvasElement): SkyRenderer | null {
@@ -175,7 +168,7 @@ export class SkyRenderer {
   /** Size in CSS pixels. The sky is soft, so it renders at reduced resolution. */
   resize(width: number, height: number) {
     this.size = [width, height]
-    const scale = Math.min(0.6, Math.max(0.35, 700 / Math.max(height, 1))) * this.quality
+    const scale = Math.min(0.6, Math.max(0.35, 700 / Math.max(height, 1))) * this.pacer.quality
     this.canvas.width = Math.max(1, Math.round(width * scale))
     this.canvas.height = Math.max(1, Math.round(height * scale))
     if (!this.running) this.draw(performance.now())
@@ -184,14 +177,12 @@ export class SkyRenderer {
   start() {
     if (this.running || this.reduceMotion) return
     this.running = true
+    this.pacer.reset()
     const tick = (now: number) => {
       if (!this.running) return
-      const since = now - this.lastDraw
-      if (since >= this.frameMs) {
-        if (this.lastDraw) this.adapt(since)
-        this.lastDraw = now
-        this.draw(now)
-      }
+      const { draw, resized } = this.pacer.tick(now)
+      if (resized) this.resize(...this.size)
+      if (draw) this.draw(now)
       this.frame = requestAnimationFrame(tick)
     }
     this.frame = requestAnimationFrame(tick)
@@ -200,27 +191,6 @@ export class SkyRenderer {
   stop() {
     this.running = false
     cancelAnimationFrame(this.frame)
-  }
-
-  /**
-   * Step quality down when frames keep arriving late. A late frame shows roughly
-   * what one draw costs; refreshing at three times that keeps the sky to about a
-   * third of the device's time, at a smaller size.
-   */
-  private adapt(interval: number) {
-    if (interval <= this.frameMs * 1.2) {
-      this.late = Math.max(0, this.late - 1)
-      return
-    }
-    this.late += 1
-    this.lateTotal += interval
-    if (this.late < 8 || this.frameMs >= SLOWEST_FRAME_MS) return
-    const cost = this.lateTotal / this.late
-    this.late = 0
-    this.lateTotal = 0
-    this.frameMs = Math.min(SLOWEST_FRAME_MS, Math.max(this.frameMs * 2, cost * 3))
-    this.quality = Math.max(0.5, this.quality * 0.8)
-    this.resize(...this.size)
   }
 
   private renderSkyTexture() {

@@ -16,7 +16,6 @@ interface Particle {
 
 const MAX_DROPS = 700
 const MAX_FLAKES = 420
-const FRAME_MS = 1000 / 60
 
 /** How many particles suit a viewport of `area` px² (exported for tests). */
 export function particleCounts(fall: Pick<Fall, 'rain' | 'snow'>, area: number) {
@@ -111,13 +110,13 @@ export class Precipitation {
     }
     if (this.frame) return
     this.last = performance.now()
+    // Every display refresh (120 Hz where the screen supports it), moved by the real
+    // time elapsed so speeds are the same at any refresh rate.
     const tick = (now: number) => {
       const dt = Math.min(0.05, (now - this.last) / 1000)
-      if (now - this.last >= FRAME_MS - 2) {
-        this.last = now
-        this.step(dt)
-        this.draw()
-      }
+      this.last = now
+      this.step(dt)
+      this.draw()
       this.frame = requestAnimationFrame(tick)
     }
     this.frame = requestAnimationFrame(tick)
