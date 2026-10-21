@@ -3,9 +3,18 @@ import { createMemoryHistory, RouterProvider } from '@tanstack/react-router'
 import { render } from '@testing-library/react'
 import { vi } from 'vitest'
 
+import { LiveProvider } from '../LiveProvider'
 import { PreferencesProvider } from '../preferences'
 import { createAppRouter } from '../router'
-import { airQuality, forecast, history, observation, toronto, visitorSession } from './fixtures'
+import {
+  airQuality,
+  forecast,
+  history,
+  observation,
+  overviewItem,
+  toronto,
+  visitorSession,
+} from './fixtures'
 
 type Handler = (request: { method: string; url: URL; body: unknown }) => unknown
 
@@ -16,6 +25,7 @@ export type Routes = Record<string, unknown | Handler>
 export const defaultRoutes = (): Routes => ({
   'GET /api/session': visitorSession,
   'GET /api/locations': [toronto],
+  'GET /api/overview': [overviewItem()],
   'GET /api/locations/1': toronto,
   'GET /api/locations/1/current': observation(),
   'GET /api/locations/1/observations': Array.from({ length: 48 }, (_, i) =>
@@ -65,9 +75,11 @@ export function renderApp(path: string) {
   const router = createAppRouter(queryClient, createMemoryHistory({ initialEntries: [path] }))
   const utils = render(
     <QueryClientProvider client={queryClient}>
-      <PreferencesProvider>
-        <RouterProvider router={router} />
-      </PreferencesProvider>
+      <LiveProvider>
+        <PreferencesProvider>
+          <RouterProvider router={router} />
+        </PreferencesProvider>
+      </LiveProvider>
     </QueryClientProvider>,
   )
   return { ...utils, router, queryClient }

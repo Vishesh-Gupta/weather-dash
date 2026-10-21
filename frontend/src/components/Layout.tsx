@@ -4,6 +4,7 @@ import { Link, Outlet, useMatchRoute, useNavigate } from '@tanstack/react-router
 import { api } from '../api/client'
 import { latestRunQuery, locationsQuery, queryKeys, sessionQuery } from '../api/queries'
 import { usePreferences, type ThemePreference } from '../preferences-context'
+import { LiveBadge } from './LiveBadge'
 import { Segmented } from './Segmented'
 
 const LOCATION_TABS = ['', 'forecast', 'air-quality', 'history'] as const
@@ -107,6 +108,7 @@ export function Layout() {
           Weather Analytics
         </Link>
         <nav className="toolbar" aria-label="Display options">
+          <LiveBadge />
           <LocationPicker />
           <Segmented
             label="Units"
