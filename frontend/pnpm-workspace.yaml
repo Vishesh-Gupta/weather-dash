@@ -1,0 +1,5 @@
+# openapi-typescript 7.13 declares typescript ^5.x but only uses the
+# compiler's printer, which produces identical output on the 6.0 API.
+peerDependencyRules:
+  allowedVersions:
+    openapi-typescript>typescript: '6'
