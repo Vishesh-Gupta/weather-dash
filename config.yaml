@@ -10,7 +10,15 @@ open_meteo:
   backfill_years: 5
 
 scheduler:
-  interval_minutes: 60
+  # OpenWeather refreshes current conditions roughly every 10 minutes, so polling
+  # every 5 picks up each update promptly. Forecasts change a few times a day.
+  current_minutes: 5
+  air_quality_minutes: 30
+  forecast_minutes: 60
+
+events:
+  # How often the API checks for new data to push to open browsers.
+  poll_seconds: 3
 
 database:
   # Used when POSTGRES_HOST / DATABASE_URL are not set (local development).

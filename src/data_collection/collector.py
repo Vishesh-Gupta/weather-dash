@@ -2,6 +2,7 @@
 
 import logging
 from datetime import UTC, date, datetime, timedelta
+from enum import StrEnum
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -29,38 +30,77 @@ HISTORY_REFRESH_OVERLAP_DAYS = 7
 HISTORY_REFRESH_INTERVAL = timedelta(hours=24)
 
 
-def collect_current_data(
-    session: Session, client: OpenWeatherClient, location: Location, issued_at: datetime
-) -> dict[str, int]:
-    """Fetch current conditions, the 5-day forecast and air quality for one location."""
+class Kind(StrEnum):
+    """Kinds of data the scheduler collects, each on its own interval."""
+
+    CURRENT = "current"
+    FORECAST = "forecast"
+    AIR_QUALITY = "air_quality"
+
+
+ALL_KINDS = frozenset(Kind)
+
+
+def collect_current(
+    session: Session, client: OpenWeatherClient, location: Location, collected_at: datetime
+) -> int:
     current = client.current(location.lat, location.lon)
     if (offset := current.pop("utc_offset_seconds", None)) is not None:
         location.utc_offset_seconds = offset
-    observations = insert_ignore(
+    return insert_ignore(
         session,
         WeatherObservation,
-        [{**current, "location_id": location.id, "collected_at": issued_at}],
+        [{**current, "location_id": location.id, "collected_at": collected_at}],
         keys=["location_id", "observed_at"],
     )
 
-    forecast_rows = [
+
+def collect_forecast(
+    session: Session, client: OpenWeatherClient, location: Location, issued_at: datetime
+) -> int:
+    rows = [
         {**entry, "location_id": location.id, "issued_at": issued_at}
         for entry in client.forecast(location.lat, location.lon)
     ]
-    forecasts = insert_ignore(
-        session, ForecastEntry, forecast_rows, keys=["location_id", "issued_at", "forecast_for"]
+    return insert_ignore(
+        session, ForecastEntry, rows, keys=["location_id", "issued_at", "forecast_for"]
     )
 
-    air_quality = 0
-    if reading := client.air_quality(location.lat, location.lon):
-        air_quality = insert_ignore(
-            session,
-            AirQualityReading,
-            [{**reading, "location_id": location.id, "collected_at": issued_at}],
-            keys=["location_id", "observed_at"],
-        )
 
-    return {"observations": observations, "forecasts": forecasts, "air_quality": air_quality}
+def collect_air_quality(
+    session: Session, client: OpenWeatherClient, location: Location, collected_at: datetime
+) -> int:
+    reading = client.air_quality(location.lat, location.lon)
+    if not reading:
+        return 0
+    return insert_ignore(
+        session,
+        AirQualityReading,
+        [{**reading, "location_id": location.id, "collected_at": collected_at}],
+        keys=["location_id", "observed_at"],
+    )
+
+
+COLLECTORS = {
+    Kind.CURRENT: collect_current,
+    Kind.FORECAST: collect_forecast,
+    Kind.AIR_QUALITY: collect_air_quality,
+}
+
+
+def collect_current_data(
+    session: Session,
+    client: OpenWeatherClient,
+    location: Location,
+    issued_at: datetime,
+    kinds: frozenset[Kind] = ALL_KINDS,
+) -> dict[str, int]:
+    """Fetch the requested kinds of data for one location. Returns rows stored per kind."""
+    return {
+        kind.value: COLLECTORS[kind](session, client, location, issued_at)
+        for kind in Kind
+        if kind in kinds
+    }
 
 
 def history_window(
@@ -107,10 +147,12 @@ def run_collection(
     history_client: OpenMeteoClient | None = None,
     now: datetime | None = None,
     location_ids: list[int] | None = None,
+    kinds: frozenset[Kind] = ALL_KINDS,
 ) -> CollectionRun:
     """Collect data for active locations, recording the outcome as a CollectionRun.
 
-    `location_ids` limits the run to specific locations (e.g. one just added).
+    `location_ids` limits the run to specific locations (e.g. one just added) and
+    `kinds` to specific data. History is synced whenever it is due, in any run.
 
     Each location is committed separately so one failure does not discard the others.
     """
@@ -120,7 +162,7 @@ def run_collection(
     history_client = history_client or OpenMeteoClient(settings)
 
     with session_scope() as session:
-        run = CollectionRun(started_at=now)
+        run = CollectionRun(started_at=now, kinds=",".join(k.value for k in Kind if k in kinds))
         session.add(run)
         session.flush()
         run_id = run.id
@@ -139,7 +181,7 @@ def run_collection(
         try:
             with session_scope() as session:
                 location = session.get(Location, location_id)
-                counts = collect_current_data(session, weather_client, location, now)
+                counts = collect_current_data(session, weather_client, location, now, kinds)
                 if history_due(location, now):
                     counts["history_days"] = sync_history(
                         session, history_client, location, now, settings.backfill_years

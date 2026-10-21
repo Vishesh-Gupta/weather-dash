@@ -215,3 +215,5 @@ class CollectionRun(Base):
     status: Mapped[str] = mapped_column(String(20), default="running")
     locations_processed: Mapped[int] = mapped_column(default=0)
     errors: Mapped[str | None] = mapped_column(Text)
+    # Comma-separated data kinds collected in this run, e.g. "current,air_quality".
+    kinds: Mapped[str | None] = mapped_column(String(100))
