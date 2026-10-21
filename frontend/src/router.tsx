@@ -97,6 +97,9 @@ export const historyRoute = createRoute({
 const manageRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'manage',
+  validateSearch: (search: Record<string, unknown>): { q?: string } => ({
+    q: typeof search.q === 'string' && search.q.trim() ? search.q.trim().slice(0, 200) : undefined,
+  }),
   beforeLoad: async ({ context }) => {
     const session = await context.queryClient.ensureQueryData(sessionQuery())
     if (!session.is_admin) throw redirect({ to: '/sign-in', search: { redirect: '/manage' } })

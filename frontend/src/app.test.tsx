@@ -13,7 +13,8 @@ describe('visitor views', () => {
   it('shows every location as a live card on the home page', async () => {
     mockApi()
     const { router } = renderApp('/')
-    const card = await screen.findByRole('link', { name: /Toronto/ })
+    const main = await screen.findByRole('main')
+    const card = await within(main).findByRole('link', { name: /Toronto/ })
     expect(within(card).getByText('17°')).toBeInTheDocument()
     expect(within(card).getByText('H 19° · L 8°')).toBeInTheDocument()
     expect(within(card).getByText('Air fair')).toBeInTheDocument()
@@ -32,7 +33,8 @@ describe('visitor views', () => {
     expect(within(hero).getByText('17°')).toBeInTheDocument()
     expect(within(hero).getByText('Feels like 16°C')).toBeInTheDocument()
     expect(within(hero).getByText(/Observed 10:00/)).toBeInTheDocument()
-    expect(within(hero).getByText('Sunrise 07:24')).toBeInTheDocument()
+    expect(within(hero).getByText('07:24')).toBeInTheDocument()
+    expect(within(hero).getByText('18:15')).toBeInTheDocument()
     expect(screen.getByText('16 km/h WSW')).toBeInTheDocument()
     expect(await screen.findByRole('img', { name: /Observed temperature/ })).toBeInTheDocument()
 
