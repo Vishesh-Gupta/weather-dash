@@ -1,2 +1,17 @@
 openweather:
   url: https://api.openweathermap.org/
+  # Seconds to wait between API calls to stay under the free tier limit (60 calls/min).
+  request_delay_seconds: 1.1
+  timeout_seconds: 10
+
+open_meteo:
+  archive_url: https://archive-api.open-meteo.com/v1/archive
+  # Years of daily history to backfill when a location is first tracked.
+  backfill_years: 5
+
+scheduler:
+  interval_minutes: 60
+
+database:
+  # Used when POSTGRES_HOST / DATABASE_URL are not set (local development).
+  sqlite_path: data/weather.db
