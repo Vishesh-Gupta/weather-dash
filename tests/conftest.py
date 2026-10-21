@@ -1,8 +1,11 @@
+import json
 import os
+from pathlib import Path
 
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
+from src.database import session as db_session
 from src.database.models import Base
 from src.database.session import create_db_engine
 from src.utils import config
@@ -23,10 +26,37 @@ def isolated_settings(monkeypatch, tmp_path):
         "WEATHER_CONFIG_PATH",
     ):
         monkeypatch.delenv(var, raising=False)
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'test.db'}")
-    config.get_settings.cache_clear()
+    monkeypatch.setenv(
+        "DATABASE_URL", os.getenv("TEST_DATABASE_URL") or f"sqlite:///{tmp_path / 'test.db'}"
+    )
+    _clear_caches()
     yield
+    _clear_caches()
+
+
+def _clear_caches():
     config.get_settings.cache_clear()
+    if db_session.get_engine.cache_info().currsize:
+        db_session.get_engine().dispose()
+    db_session.get_engine.cache_clear()
+    db_session.get_session_factory.cache_clear()
+
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def load_fixture(name: str):
+    return json.loads((FIXTURES / name).read_text())
+
+
+@pytest.fixture
+def app_db():
+    """The application's own engine (via settings), with tables created."""
+    engine = db_session.get_engine()
+    Base.metadata.drop_all(engine)
+    Base.metadata.create_all(engine)
+    yield engine
+    Base.metadata.drop_all(engine)
 
 
 @pytest.fixture

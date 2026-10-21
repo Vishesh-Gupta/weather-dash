@@ -1,33 +1,9 @@
-import requests
-from dotenv import load_dotenv
-
-from .config import get_api_key
-
-load_dotenv()
+from src.data_collection.openweather import OpenWeatherClient
 
 
-def search_location(query: str) -> list[dict]:
-    """Search for locations using OpenWeatherMap Geocoding API."""
-    api_key = get_api_key()
-    if not api_key:
-        raise ValueError("WEATHER_API_KEY not found in environment or config")
-
-    url = "https://api.openweathermap.org/geo/1.0/direct"
-
-    params = {"q": query, "limit": 5, "appid": api_key}
-
-    response = requests.get(url, params=params)
-    response.raise_for_status()
-
-    results = []
-    for item in response.json():
-        results.append(
-            {
-                "name": f"{item['name']}, {item.get('state', '')}, {item['country']}".strip(", "),
-                "lat": item["lat"],
-                "lon": item["lon"],
-                "country": item["country"],
-            }
-        )
-
-    return results
+def search_location(query: str, client: OpenWeatherClient | None = None) -> list[dict]:
+    """Search for locations using the OpenWeatherMap Geocoding API."""
+    query = query.strip()
+    if not query:
+        return []
+    return (client or OpenWeatherClient()).geocode(query, limit=5)
