@@ -30,6 +30,7 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-weather_user}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-weather_pass}
       - POSTGRES_DB=${POSTGRES_DB:-weather_db}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
     ports:
       - "${DASHBOARD_PORT:-8501}:8501"
     depends_on:
