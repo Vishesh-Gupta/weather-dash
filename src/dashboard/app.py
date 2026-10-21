@@ -6,7 +6,6 @@ import pandas as pd
 import streamlit as st
 
 from src.dashboard import charts, data
-from src.dashboard.auth import LoginThrottle
 from src.dashboard.units import Units, UnitSystem, compass
 from src.data_collection.collector import run_collection
 from src.data_collection.openweather import OpenWeatherError
@@ -14,6 +13,7 @@ from src.database import repository
 from src.database.models import Location
 from src.database.session import session_scope
 from src.database.setup import init_db
+from src.utils.auth import LoginThrottle
 from src.utils.config import get_settings
 from src.utils.locations import search_location
 

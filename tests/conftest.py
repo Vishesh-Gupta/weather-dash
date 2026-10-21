@@ -25,6 +25,9 @@ def isolated_settings(monkeypatch, tmp_path):
         "SCHEDULER_INTERVAL_MINUTES",
         "WEATHER_CONFIG_PATH",
         "ADMIN_PASSWORD",
+        "SESSION_SECRET",
+        "SESSION_COOKIE_SECURE",
+        "CORS_ORIGINS",
     ):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv(

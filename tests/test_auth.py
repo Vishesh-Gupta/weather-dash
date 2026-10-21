@@ -1,4 +1,4 @@
-from src.dashboard.auth import LoginThrottle, password_matches
+from src.utils.auth import LoginThrottle, password_matches
 
 
 def test_password_matches():

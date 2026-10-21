@@ -56,7 +56,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app:$PYTHONPATH"
 ENV PYTHONUNBUFFERED=1
 
-EXPOSE 8501
+EXPOSE 8501 8000
 
 # Default command (can be overridden in docker-compose)
 CMD ["streamlit", "run", "src/dashboard/app.py", "--server.port=8501", "--server.address=0.0.0.0"]

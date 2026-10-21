@@ -1,0 +1,137 @@
+"""Response and request models. Values are metric; timestamps are UTC (ISO 8601)."""
+
+from datetime import date, datetime
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class ORMModel(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LocationOut(ORMModel):
+    id: int
+    name: str
+    state: str | None
+    country: str
+    display_name: str
+    lat: float
+    lon: float
+    utc_offset_seconds: int | None
+
+
+class LocationCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    state: str | None = Field(default=None, max_length=100)
+    country: str = Field(min_length=2, max_length=2)
+    lat: float = Field(ge=-90, le=90)
+    lon: float = Field(ge=-180, le=180)
+
+
+class GeocodeResult(BaseModel):
+    name: str
+    state: str | None
+    country: str
+    lat: float
+    lon: float
+    display_name: str
+
+
+class ObservationOut(ORMModel):
+    observed_at: datetime
+    temp: float
+    feels_like: float
+    temp_min: float | None
+    temp_max: float | None
+    pressure: float | None
+    humidity: float | None
+    visibility: float | None
+    wind_speed: float | None
+    wind_deg: float | None
+    wind_gust: float | None
+    clouds: float | None
+    rain_1h: float | None
+    snow_1h: float | None
+    weather_main: str | None
+    weather_description: str | None
+    weather_icon: str | None
+    sunrise: datetime | None
+    sunset: datetime | None
+
+
+class ForecastEntryOut(ORMModel):
+    forecast_for: datetime
+    temp: float
+    feels_like: float | None
+    humidity: float | None
+    pressure: float | None
+    wind_speed: float | None
+    wind_deg: float | None
+    clouds: float | None
+    pop: float | None
+    rain_3h: float | None
+    snow_3h: float | None
+    weather_main: str | None
+    weather_description: str | None
+    weather_icon: str | None
+
+
+class ForecastOut(BaseModel):
+    issued_at: datetime | None
+    entries: list[ForecastEntryOut]
+
+
+class AirQualityOut(ORMModel):
+    observed_at: datetime
+    aqi: int = Field(
+        description="OpenWeather index: 1 good, 2 fair, 3 moderate, 4 poor, 5 very poor"
+    )
+    co: float | None
+    no: float | None
+    no2: float | None
+    o3: float | None
+    so2: float | None
+    pm2_5: float | None
+    pm10: float | None
+    nh3: float | None
+
+
+class DailyHistoryOut(ORMModel):
+    date: date
+    temp_max: float | None
+    temp_min: float | None
+    temp_mean: float | None
+    precipitation_sum: float | None
+    rain_sum: float | None
+    snowfall_sum: float | None
+    wind_speed_max: float | None
+    wind_gusts_max: float | None
+    sunshine_duration: float | None = Field(description="Seconds of sunshine")
+
+
+class CollectionRunOut(ORMModel):
+    id: int
+    started_at: datetime
+    finished_at: datetime | None
+    status: str
+    locations_processed: int
+    errors: str | None
+
+
+class SessionOut(BaseModel):
+    is_admin: bool = Field(description="Whether this browser may manage locations")
+    auth_required: bool = Field(description="Whether an admin password is configured")
+    can_collect: bool = Field(description="Whether an OpenWeather API key is configured")
+
+
+class SignIn(BaseModel):
+    password: str = Field(max_length=1024)
+
+
+class CollectRequest(BaseModel):
+    location_ids: list[int] | None = None
+
+
+class HealthOut(BaseModel):
+    status: str
+    database: str
