@@ -4,6 +4,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
 import { ApiError } from './api/client'
+import { LiveProvider } from './LiveProvider'
 import { PreferencesProvider } from './preferences'
 import { createAppRouter } from './router'
 import './styles.css'
@@ -24,9 +25,11 @@ const router = createAppRouter(queryClient)
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <PreferencesProvider>
-        <RouterProvider router={router} />
-      </PreferencesProvider>
+      <LiveProvider>
+        <PreferencesProvider>
+          <RouterProvider router={router} />
+        </PreferencesProvider>
+      </LiveProvider>
     </QueryClientProvider>
   </StrictMode>,
 )

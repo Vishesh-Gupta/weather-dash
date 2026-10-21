@@ -10,25 +10,35 @@ beforeEach(() => {
 })
 
 describe('visitor views', () => {
-  it('redirects the home page to the first location', async () => {
+  it('shows every location as a live card on the home page', async () => {
     mockApi()
     const { router } = renderApp('/')
-    expect(
-      await screen.findByRole('heading', { level: 1, name: 'Toronto, Ontario, CA' }),
-    ).toBeInTheDocument()
-    expect(router.state.location.pathname).toBe('/locations/1')
+    const card = await screen.findByRole('link', { name: /Toronto/ })
+    expect(within(card).getByText('17°')).toBeInTheDocument()
+    expect(within(card).getByText('H 19° · L 8°')).toBeInTheDocument()
+    expect(within(card).getByText('Air fair')).toBeInTheDocument()
+    expect(within(card).getByRole('img', { name: 'Partly cloudy' })).toBeInTheDocument()
+
+    await userEvent.click(card)
+    await waitFor(() => expect(router.state.location.pathname).toBe('/locations/1'))
   })
 
   it('shows current conditions in local time and switches units', async () => {
     mockApi()
     renderApp('/locations/1')
-    expect(await screen.findByText('17°C')).toBeInTheDocument()
-    expect(screen.getByText(/Observed .*10:00 local time/)).toBeInTheDocument()
+    const hero = await screen.findByRole('region', {
+      name: 'Current weather in Toronto, Ontario, CA',
+    })
+    expect(within(hero).getByText('17°')).toBeInTheDocument()
+    expect(within(hero).getByText('Feels like 16°C')).toBeInTheDocument()
+    expect(within(hero).getByText(/Observed 10:00/)).toBeInTheDocument()
+    expect(within(hero).getByText('Sunrise 07:24')).toBeInTheDocument()
     expect(screen.getByText('16 km/h WSW')).toBeInTheDocument()
     expect(await screen.findByRole('img', { name: /Observed temperature/ })).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: '°F' }))
-    expect(screen.getByText('63°F')).toBeInTheDocument()
+    expect(within(hero).getByText('63°')).toBeInTheDocument()
+    expect(within(hero).getByText('Feels like 60°F')).toBeInTheDocument()
     expect(screen.getByText('10 mph WSW')).toBeInTheDocument()
     expect(window.localStorage.getItem('units')).toBe('imperial')
   })
@@ -37,13 +47,13 @@ describe('visitor views', () => {
     window.localStorage.setItem('units', 'imperial')
     mockApi()
     renderApp('/locations/1')
-    expect(await screen.findByText('63°F')).toBeInTheDocument()
+    expect(await screen.findByText('Feels like 60°F')).toBeInTheDocument()
   })
 
   it('requests the selected observation window', async () => {
     const { calls } = mockApi()
     renderApp('/locations/1')
-    await screen.findByText('17°C')
+    await screen.findByText('Feels like 16°C')
     await userEvent.click(screen.getByRole('button', { name: '24 hours' }))
     await waitFor(() =>
       expect(calls.some((c) => c.path === '/api/locations/1/observations?days=1')).toBe(true),
@@ -97,7 +107,7 @@ describe('visitor views', () => {
   })
 
   it('shows an empty state when nothing is published', async () => {
-    mockApi({ 'GET /api/locations': [] })
+    mockApi({ 'GET /api/overview': [] })
     renderApp('/')
     expect(await screen.findByText(/No locations have been published yet/)).toBeInTheDocument()
   })

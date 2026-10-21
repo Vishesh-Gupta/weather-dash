@@ -4,6 +4,7 @@ import type {
   Forecast,
   Location,
   Observation,
+  OverviewItem,
   Session,
 } from '../api/client'
 
@@ -93,3 +94,11 @@ export const history: DailyHistory[] = Array.from({ length: 400 }, (_, i) => {
 
 export const visitorSession: Session = { is_admin: false, auth_required: true, can_collect: true }
 export const adminSession: Session = { is_admin: true, auth_required: true, can_collect: true }
+
+export const overviewItem = (current: Observation | null = observation()): OverviewItem => ({
+  location: toronto,
+  current,
+  air_quality: airQuality.at(-1) ?? null,
+  today: { high: 19, low: 8 },
+  normal: null,
+})
