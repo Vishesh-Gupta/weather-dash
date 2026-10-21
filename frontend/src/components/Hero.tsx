@@ -1,12 +1,14 @@
 import { Link } from '@tanstack/react-router'
 
 import type { Location, Observation } from '../api/client'
+import { versusNormal } from '../lib/insights'
 import { sceneFor } from '../lib/scene'
 import { skyStyle } from '../lib/skyStyle'
 import { skyFor } from '../lib/sky'
 import { formatTime, toLocationTime } from '../lib/time'
-import type { Units } from '../lib/units'
+import { compass, type Units } from '../lib/units'
 import { relativeTime, useNow } from '../lib/useNow'
+import { LiveValue } from './Instrument'
 import { SunArc } from './SunArc'
 import { WeatherIcon } from './WeatherIcon'
 
@@ -38,7 +40,9 @@ export function Hero({ location, obs, units, today }: HeroProps) {
   return (
     <section className="hero" aria-label={`Current weather in ${location.display_name}`}>
       <div className="hero-now">
-        <span className="hero-temp">{Math.round(units.temp(obs.temp))}°</span>
+        <span className="hero-temp">
+          <LiveValue value={`${Math.round(units.temp(obs.temp))}°`} />
+        </span>
         <div className="hero-detail">
           <div className="hero-condition">
             <WeatherIcon sky={sky} size={22} />
@@ -73,9 +77,13 @@ interface CardProps {
   units: Units
   today?: { high: number; low: number } | null
   aqi?: { label: string; role: string | null } | null
+  /** The climate normal for today, to say whether today runs warm or cold. */
+  normalHigh?: number | null
 }
 
-export function LocationCard({ location, obs, units, today, aqi }: CardProps) {
+export function LocationCard({ location, obs, units, today, aqi, normalHigh }: CardProps) {
+  const versus = versusNormal(today?.high, normalHigh)
+  const delta = versus ? Math.round(units.temp(versus.difference) - units.temp(0)) : 0
   const now = useNow(60_000)
   const scene = obs ? sceneFor(obs, location, now) : null
   return (
@@ -98,15 +106,41 @@ export function LocationCard({ location, obs, units, today, aqi }: CardProps) {
       {obs ? (
         <>
           <div className="card-temp">
-            {Math.round(units.temp(obs.temp))}°
+            <LiveValue value={`${Math.round(units.temp(obs.temp))}°`} />
             <span className="card-condition">
               {obs.weather_description ? capitalize(obs.weather_description) : ''}
             </span>
           </div>
+          <dl className="card-stats">
+            <div>
+              <dt>Feels</dt>
+              <dd>{Math.round(units.temp(obs.feels_like))}°</dd>
+            </div>
+            {obs.wind_speed != null ? (
+              <div>
+                <dt>Wind</dt>
+                <dd>
+                  {Math.round(units.wind(obs.wind_speed))} {units.windLabel} {compass(obs.wind_deg)}
+                </dd>
+              </div>
+            ) : null}
+            {obs.humidity != null ? (
+              <div>
+                <dt>Humidity</dt>
+                <dd>{Math.round(obs.humidity)}%</dd>
+              </div>
+            ) : null}
+          </dl>
           <div className="card-meta">
             {today ? (
               <span>
                 H {Math.round(units.temp(today.high))}° · L {Math.round(units.temp(today.low))}°
+              </span>
+            ) : null}
+            {versus?.notable ? (
+              <span className={`chip chip-${versus.difference > 0 ? 'warm' : 'cold'}`}>
+                {delta > 0 ? '+' : '−'}
+                {Math.abs(delta)}° vs normal
               </span>
             ) : null}
             {aqi ? (

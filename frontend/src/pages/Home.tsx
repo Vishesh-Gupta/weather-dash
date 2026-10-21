@@ -56,6 +56,7 @@ export function HomePage() {
               units={units}
               today={item.today}
               aqi={item.air_quality ? aqiLevel(item.air_quality.aqi) : null}
+              normalHigh={item.normal?.temp_max}
             />
           ))}
         </div>

@@ -3,22 +3,21 @@ import { useQuery } from '@tanstack/react-query'
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { useMemo } from 'react'
 
-import { currentQuery, observationsQuery, overviewQuery } from '../api/queries'
+import { currentQuery, forecastQuery, observationsQuery, overviewQuery } from '../api/queries'
 import { temperatureChart, type TempRow } from '../charts/definitions'
 import { ChartCard } from '../components/ChartCard'
+import { Conditions } from '../components/Conditions'
 import { Hero } from '../components/Hero'
+import { NextHours } from '../components/NextHours'
 import { Segmented } from '../components/Segmented'
 import { ErrorNotice, Loading, Notice } from '../components/States'
-import { Tile } from '../components/Tile'
 import { toLocationTime } from '../lib/time'
 import { OBSERVATION_WINDOWS } from '../lib/periods'
-import { compass } from '../lib/units'
+import { useNow } from '../lib/useNow'
 import { usePreferences } from '../preferences-context'
 
 const locationRoute = getRouteApi('/locations/$locationId')
 const nowRoute = getRouteApi('/locations/$locationId/')
-
-const dash = '–'
 
 function ObservedTrend({ locationId, offset }: { locationId: number; offset: number | null }) {
   const { units, palette } = usePreferences()
@@ -73,8 +72,12 @@ function ObservedTrend({ locationId, offset }: { locationId: number; offset: num
 export function NowPage() {
   const location = locationRoute.useLoaderData()
   const { units } = usePreferences()
+  const nowMs = useNow(60_000)
   const { data: obs, isPending, error, refetch } = useQuery(currentQuery(location.id))
-  // Today's forecast range comes from the shared overview, already loaded for the home page.
+  // The last day of readings drives the trend lines; refreshed live with the rest.
+  const { data: recent = [] } = useQuery(observationsQuery(location.id, 1))
+  const { data: forecast } = useQuery(forecastQuery(location.id))
+  // Today's range, air quality and normal come from the shared overview.
   const { data: overview } = useQuery({
     ...overviewQuery(),
     select: (items) => items.find((item) => item.location.id === location.id),
@@ -86,45 +89,24 @@ export function NowPage() {
   if (!obs)
     return <Notice>No observations yet. They appear after the next scheduled collection.</Notice>
 
-  const wind =
-    obs.wind_speed == null
-      ? dash
-      : `${Math.round(units.wind(obs.wind_speed))} ${units.windLabel} ${compass(obs.wind_deg)}`.trim()
-
   return (
     <div className="stack">
       <Hero location={location} obs={obs} units={units} today={overview?.today} />
-      <div className="tiles">
-        <Tile
-          label="Humidity"
-          value={obs.humidity == null ? dash : `${Math.round(obs.humidity)}%`}
-        />
-        <Tile
-          label="Wind"
-          value={wind}
-          detail={
-            obs.wind_gust == null
-              ? undefined
-              : `Gusts ${Math.round(units.wind(obs.wind_gust))} ${units.windLabel}`
-          }
-        />
-        <Tile
-          label="Pressure"
-          value={obs.pressure == null ? dash : `${Math.round(obs.pressure)} hPa`}
-        />
-        <Tile
-          label="Cloud cover"
-          value={obs.clouds == null ? dash : `${Math.round(obs.clouds)}%`}
-        />
-        <Tile
-          label="Visibility"
-          value={
-            obs.visibility == null
-              ? dash
-              : `${units.distance(obs.visibility).toFixed(1)} ${units.distanceLabel}`
-          }
-        />
-      </div>
+      {forecast?.entries.length ? (
+        <NextHours entries={forecast.entries} nowMs={nowMs} offset={offset} units={units} />
+      ) : null}
+      <Conditions
+        locationId={location.id}
+        obs={obs}
+        recent={recent}
+        forecast={forecast?.entries ?? []}
+        air={overview?.air_quality ?? null}
+        today={overview?.today ?? null}
+        normal={overview?.normal ?? null}
+        nowMs={nowMs}
+        offset={offset}
+        units={units}
+      />
       <ObservedTrend locationId={location.id} offset={offset} />
     </div>
   )
