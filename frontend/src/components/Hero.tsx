@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 
 import type { Location, Observation } from '../api/client'
 import { sceneFor } from '../lib/scene'
+import { skyStyle } from '../lib/skyStyle'
 import { skyFor } from '../lib/sky'
 import { formatTime, toLocationTime } from '../lib/time'
 import type { Units } from '../lib/units'
@@ -30,25 +31,17 @@ interface HeroProps {
   today?: { high: number; low: number } | null
 }
 
-/** Current conditions drawn straight onto the page's sky, with the sun's arc. */
+/** Current conditions over the page's sky, with the day's sunrise and sunset. */
 export function Hero({ location, obs, units, today }: HeroProps) {
   const sky = skyFor(obs)
   const offset = location.utc_offset_seconds
   return (
     <section className="hero" aria-label={`Current weather in ${location.display_name}`}>
-      <div className="hero-top">
-        <div>
-          <div className="hero-place">{location.name}</div>
-          <div className="hero-clock">
-            <LocalClock offset={offset} /> local time
-          </div>
-        </div>
-        <WeatherIcon sky={sky} size={104} />
-      </div>
-      <div className="hero-main">
+      <div className="hero-now">
         <span className="hero-temp">{Math.round(units.temp(obs.temp))}°</span>
         <div className="hero-detail">
           <div className="hero-condition">
+            <WeatherIcon sky={sky} size={22} />
             {obs.weather_description ? capitalize(obs.weather_description) : ''}
           </div>
           <div>
@@ -60,6 +53,9 @@ export function Hero({ location, obs, units, today }: HeroProps) {
               H {Math.round(units.temp(today.high))}° · L {Math.round(units.temp(today.low))}°
             </div>
           ) : null}
+          <div className="hero-clock">
+            <LocalClock offset={offset} /> local time
+          </div>
         </div>
       </div>
       <SunArc obs={obs} offset={offset} />
@@ -81,12 +77,13 @@ interface CardProps {
 
 export function LocationCard({ location, obs, units, today, aqi }: CardProps) {
   const now = useNow(60_000)
-  const scene = obs ? sceneFor(obs, now) : null
+  const scene = obs ? sceneFor(obs, location, now) : null
   return (
     <Link
       to="/locations/$locationId"
       params={{ locationId: location.id }}
-      className={`location-card sky-${scene?.theme ?? 'clouds-day'}`}
+      className="location-card"
+      style={scene ? skyStyle(scene.palette) : undefined}
     >
       <div className="card-top">
         <div>
@@ -96,7 +93,7 @@ export function LocationCard({ location, obs, units, today, aqi }: CardProps) {
             <LocalClock offset={location.utc_offset_seconds} />
           </div>
         </div>
-        {scene ? <WeatherIcon sky={scene.sky} size={56} /> : null}
+        {scene ? <WeatherIcon sky={scene.sky} size={28} /> : null}
       </div>
       {obs ? (
         <>

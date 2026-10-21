@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { isDaytime, skyFor, themeFor } from './sky'
+import { isDaytime, skyFor } from './sky'
 
 const base = {
   observed_at: '2026-10-21T16:00:00Z',
@@ -35,11 +35,5 @@ describe('sky', () => {
         weather_icon: null,
       }),
     ).toBe(false)
-  })
-
-  it('maps partly cloudy and drizzle onto shared backgrounds', () => {
-    expect(themeFor('partly-day')).toBe('clear-day')
-    expect(themeFor('drizzle')).toBe('rain')
-    expect(themeFor('snow')).toBe('snow')
   })
 })

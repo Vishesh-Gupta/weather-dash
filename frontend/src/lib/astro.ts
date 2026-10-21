@@ -13,11 +13,6 @@ export function moonPhase(nowMs: number): number {
   return phase < 0 ? phase + 1 : phase
 }
 
-/** Fraction of the moon's disc that is lit, 0–1. */
-export function moonIllumination(phase: number): number {
-  return (1 - Math.cos(2 * Math.PI * phase)) / 2
-}
-
 export function moonPhaseName(phase: number): string {
   const names = [
     'New moon',

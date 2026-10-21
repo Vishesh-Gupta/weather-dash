@@ -93,7 +93,7 @@ export function ForecastPage() {
 
   return (
     <div className="stack">
-      <p className="caption" style={{ margin: 0 }}>
+      <p className="caption on-sky" style={{ margin: 0 }}>
         5-day forecast in 3-hour steps, retrieved{' '}
         {formatDayTime(toLocationTime(data.issued_at, offset))} local time.
       </p>

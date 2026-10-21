@@ -16,19 +16,6 @@ export type Sky =
   | 'snow'
   | 'mist'
 
-/** Background theme for a sky; partly cloudy skies use the clear backgrounds. */
-export type SkyTheme =
-  | 'clear-day'
-  | 'clear-night'
-  | 'dawn'
-  | 'dusk'
-  | 'clouds-day'
-  | 'clouds-night'
-  | 'rain'
-  | 'thunder'
-  | 'snow'
-  | 'mist'
-
 type Conditions = Pick<
   Observation,
   'weather_main' | 'weather_icon' | 'clouds' | 'observed_at' | 'sunrise' | 'sunset'
@@ -73,17 +60,4 @@ export function skyFor(obs: Conditions): Sky {
     return day ? 'clouds-day' : 'clouds-night'
   }
   return day ? 'clear-day' : 'clear-night'
-}
-
-export function themeFor(sky: Sky): SkyTheme {
-  switch (sky) {
-    case 'partly-day':
-      return 'clear-day'
-    case 'partly-night':
-      return 'clear-night'
-    case 'drizzle':
-      return 'rain'
-    default:
-      return sky
-  }
 }

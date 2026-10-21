@@ -54,7 +54,7 @@ export function SunArc({ obs, offset }: { obs: Observation; offset: number | nul
           className={day ? 'sun-arc-sun' : 'sun-arc-moon'}
           style={{ left: `${(point.x / WIDTH) * 100}%`, top: `${(point.y / HEIGHT) * 100}%` }}
         >
-          {day ? null : <Moon phase={phase} size={34} />}
+          {day ? null : <Moon phase={phase} size={20} />}
         </div>
       </div>
       <div className="sun-arc-labels">
