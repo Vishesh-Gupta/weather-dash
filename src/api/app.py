@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
+from src.api.frontend import SecurityHeadersMiddleware, mount_frontend
 from src.api.routes import collection, geocode, health, locations, session
 from src.database.setup import init_db
 from src.utils.config import Settings, get_settings
@@ -55,6 +56,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         https_only=settings.session_cookie_secure,
     )
     app.add_middleware(GZipMiddleware, minimum_size=1024)
+    app.add_middleware(SecurityHeadersMiddleware)
     if settings.cors_origins:
         app.add_middleware(
             CORSMiddleware,
@@ -68,6 +70,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     for module in (health, session, locations, geocode, collection):
         api.include_router(module.router)
     app.include_router(api)
+
+    # Registered last so its catch-all route never shadows the API.
+    if mount_frontend(app, settings.frontend_dist):
+        logger.info("Serving frontend from %s", settings.frontend_dist)
     return app
 
 
