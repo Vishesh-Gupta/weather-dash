@@ -34,6 +34,8 @@ def collect_current_data(
 ) -> dict[str, int]:
     """Fetch current conditions, the 5-day forecast and air quality for one location."""
     current = client.current(location.lat, location.lon)
+    if (offset := current.pop("utc_offset_seconds", None)) is not None:
+        location.utc_offset_seconds = offset
     observations = insert_ignore(
         session,
         WeatherObservation,
@@ -104,8 +106,11 @@ def run_collection(
     weather_client: OpenWeatherClient | None = None,
     history_client: OpenMeteoClient | None = None,
     now: datetime | None = None,
+    location_ids: list[int] | None = None,
 ) -> CollectionRun:
-    """Collect data for all active locations, recording the outcome as a CollectionRun.
+    """Collect data for active locations, recording the outcome as a CollectionRun.
+
+    `location_ids` limits the run to specific locations (e.g. one just added).
 
     Each location is committed separately so one failure does not discard the others.
     """
@@ -119,7 +124,11 @@ def run_collection(
         session.add(run)
         session.flush()
         run_id = run.id
-        location_ids = [loc.id for loc in repository.list_locations(session)]
+        active_ids = [loc.id for loc in repository.list_locations(session)]
+        if location_ids is not None:
+            wanted = set(location_ids)
+            active_ids = [i for i in active_ids if i in wanted]
+        location_ids = active_ids
 
     if not location_ids:
         logger.info("No tracked locations yet; add some from the dashboard")

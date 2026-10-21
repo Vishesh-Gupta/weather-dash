@@ -91,3 +91,15 @@ def test_naive_datetimes_rejected(session):
     )
     with pytest.raises(Exception, match="Naive datetimes"):
         session.commit()
+
+
+def test_init_db_adds_new_nullable_columns_to_existing_tables(engine):
+    from sqlalchemy import text
+
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE locations DROP COLUMN utc_offset_seconds"))
+    assert "utc_offset_seconds" not in {c["name"] for c in inspect(engine).get_columns("locations")}
+
+    init_db(engine)
+    assert "utc_offset_seconds" in {c["name"] for c in inspect(engine).get_columns("locations")}
+    init_db(engine)  # idempotent

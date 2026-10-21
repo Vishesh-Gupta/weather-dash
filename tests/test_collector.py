@@ -194,3 +194,20 @@ def test_collection_without_locations(app_db):
 )
 def test_history_due(synced, expected):
     assert collector.history_due(Location(history_backfilled_at=synced), NOW) is expected
+
+
+def test_collection_records_location_utc_offset(app_db):
+    add_locations((43.65, -79.38))
+    collector.run_collection(StubWeatherClient(), StubHistoryClient(), now=NOW)
+    with session_scope() as session:
+        assert session.scalar(select(Location)).utc_offset_seconds == -14400
+
+
+def test_run_collection_can_target_locations(app_db):
+    add_locations((43.65, -79.38), (48.85, 2.35))
+    with session_scope() as session:
+        paris = session.scalar(select(Location).where(Location.lat == 48.85))
+    weather = StubWeatherClient()
+    run = collector.run_collection(weather, StubHistoryClient(), now=NOW, location_ids=[paris.id])
+    assert run.locations_processed == 1
+    assert weather.calls == 3
