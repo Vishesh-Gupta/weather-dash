@@ -36,6 +36,8 @@ class Settings:
     session_cookie_secure: bool = False
     # Comma-separated origins allowed to call the API from a browser (local frontend dev).
     cors_origins: tuple[str, ...] = ()
+    # Built React app served by the API; skipped when it hasn't been built.
+    frontend_dist: Path = PROJECT_ROOT / "frontend" / "dist"
 
 
 def load_yaml_config(path: Path | None = None) -> dict[str, Any]:
@@ -92,6 +94,7 @@ def get_settings() -> Settings:
         cors_origins=tuple(
             origin.strip() for origin in os.getenv("CORS_ORIGINS", "").split(",") if origin.strip()
         ),
+        frontend_dist=Path(os.getenv("FRONTEND_DIST") or PROJECT_ROOT / "frontend" / "dist"),
     )
 
 
