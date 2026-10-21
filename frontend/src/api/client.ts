@@ -12,6 +12,8 @@ export type AirQuality = Schemas['AirQualityOut']
 export type DailyHistory = Schemas['DailyHistoryOut']
 export type CollectionRun = Schemas['CollectionRunOut']
 export type Session = Schemas['SessionOut']
+export type OverviewItem = Schemas['OverviewItem']
+export type Normal = Schemas['NormalOut']
 
 export class ApiError extends Error {
   readonly status: number
@@ -66,6 +68,14 @@ export const api = {
     request<AirQuality[]>(`/locations/${id}/air-quality?days=${days}`),
   history: (id: number) => request<DailyHistory[]>(`/locations/${id}/history`),
   latestRun: () => request<CollectionRun | null>('/collection-runs/latest'),
+  overview: () => request<OverviewItem[]>('/overview'),
+  normals: (id: number, start?: string, end?: string) => {
+    const params = new URLSearchParams()
+    if (start) params.set('start', start)
+    if (end) params.set('end', end)
+    const query = params.toString()
+    return request<Normal[]>(`/locations/${id}/normals${query ? `?${query}` : ''}`)
+  },
 
   geocode: (query: string) => request<GeocodeResult[]>(`/geocode?q=${encodeURIComponent(query)}`),
   createLocation: (body: LocationCreate) =>

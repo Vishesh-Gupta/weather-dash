@@ -10,6 +10,14 @@ export const queryKeys = {
   locations: ['locations'] as const,
   location: (id: number) => ['locations', id] as const,
   latestRun: ['collection-runs', 'latest'] as const,
+  overview: ['overview'] as const,
+}
+
+/** Per-location query suffixes affected by each kind of collected data. */
+export const KIND_QUERIES: Record<string, readonly string[]> = {
+  current: ['current', 'observations'],
+  forecast: ['forecast'],
+  air_quality: ['air-quality'],
 }
 
 export const sessionQuery = () =>
@@ -62,4 +70,15 @@ export const locationQuery = (id: number) =>
     queryKey: queryKeys.location(id),
     queryFn: () => api.location(id),
     staleTime: DATA_STALE_MS,
+  })
+
+export const overviewQuery = () =>
+  queryOptions({ queryKey: queryKeys.overview, queryFn: api.overview, staleTime: DATA_STALE_MS })
+
+export const normalsQuery = (id: number, start?: string, end?: string) =>
+  queryOptions({
+    queryKey: [...queryKeys.location(id), 'normals', start ?? 'today', end ?? start ?? 'today'],
+    queryFn: () => api.normals(id, start, end),
+    // Normals only move as history accumulates.
+    staleTime: 6 * 60 * 60 * 1000,
   })

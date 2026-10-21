@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { getRouteApi, Link } from '@tanstack/react-router'
 import { useEffect, useState, type FormEvent } from 'react'
 
 import { api, type CollectionRun, type GeocodeResult, type Location } from '../api/client'
@@ -35,6 +35,8 @@ function useCollection() {
   return { start, running, latest: run.data }
 }
 
+const manageRoute = getRouteApi('/manage')
+
 function SearchLocations({
   disabled,
   tracked,
@@ -43,8 +45,10 @@ function SearchLocations({
   tracked: readonly Location[]
 }) {
   const queryClient = useQueryClient()
-  const [query, setQuery] = useState('')
-  const [submitted, setSubmitted] = useState('')
+  // Arriving from the header search with ?q= starts the search straight away.
+  const { q = '' } = manageRoute.useSearch()
+  const [query, setQuery] = useState(q)
+  const [submitted, setSubmitted] = useState(disabled ? '' : q)
   const results = useQuery({
     queryKey: ['geocode', submitted],
     queryFn: () => api.geocode(submitted),

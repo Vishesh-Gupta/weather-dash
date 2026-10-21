@@ -10,7 +10,7 @@ import {
 } from '@tanstack/react-router'
 
 import { ApiError } from './api/client'
-import { locationQuery, locationsQuery, sessionQuery } from './api/queries'
+import { locationQuery, overviewQuery, sessionQuery } from './api/queries'
 import {
   HISTORY_PERIODS,
   OBSERVATION_WINDOWS,
@@ -34,16 +34,7 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  loader: async ({ context }) => {
-    const locations = await context.queryClient.ensureQueryData(locationsQuery())
-    const first = locations[0]
-    if (first)
-      throw redirect({
-        to: '/locations/$locationId',
-        params: { locationId: first.id },
-        replace: true,
-      })
-  },
+  loader: ({ context }) => context.queryClient.ensureQueryData(overviewQuery()),
   component: HomePage,
 })
 
@@ -106,6 +97,9 @@ export const historyRoute = createRoute({
 const manageRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'manage',
+  validateSearch: (search: Record<string, unknown>): { q?: string } => ({
+    q: typeof search.q === 'string' && search.q.trim() ? search.q.trim().slice(0, 200) : undefined,
+  }),
   beforeLoad: async ({ context }) => {
     const session = await context.queryClient.ensureQueryData(sessionQuery())
     if (!session.is_admin) throw redirect({ to: '/sign-in', search: { redirect: '/manage' } })

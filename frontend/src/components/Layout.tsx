@@ -1,50 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, Outlet, useMatchRoute, useNavigate } from '@tanstack/react-router'
+import { Link, Outlet } from '@tanstack/react-router'
+import { useMemo } from 'react'
 
 import { api } from '../api/client'
-import { latestRunQuery, locationsQuery, queryKeys, sessionQuery } from '../api/queries'
-import { usePreferences, type ThemePreference } from '../preferences-context'
+import { latestRunQuery, queryKeys, sessionQuery } from '../api/queries'
+import { sceneFor } from '../lib/scene'
+import { useActiveLocation } from '../lib/useActiveLocation'
+import { useNow } from '../lib/useNow'
+import { usePreferences } from '../preferences-context'
+import { LiveBadge } from './LiveBadge'
+import { LocationSwitcher } from './LocationSwitcher'
 import { Segmented } from './Segmented'
-
-const LOCATION_TABS = ['', 'forecast', 'air-quality', 'history'] as const
-
-function LocationPicker() {
-  const { data: locations = [] } = useQuery(locationsQuery())
-  const navigate = useNavigate()
-  const matchRoute = useMatchRoute()
-  const match = matchRoute({ to: '/locations/$locationId', fuzzy: true })
-  const currentId = match ? Number(match.locationId) : undefined
-
-  if (locations.length === 0) return null
-
-  // Keep the current tab when switching location.
-  const currentTab = LOCATION_TABS.find(
-    (tab) => tab && matchRoute({ to: `/locations/$locationId/${tab}`, fuzzy: true }),
-  )
-
-  return (
-    <label>
-      <span className="visually-hidden">Location</span>
-      <select
-        value={currentId ?? ''}
-        onChange={(event) => {
-          const locationId = Number(event.target.value)
-          void navigate({
-            to: currentTab ? `/locations/$locationId/${currentTab}` : '/locations/$locationId',
-            params: { locationId },
-          })
-        }}
-      >
-        {currentId === undefined ? <option value="">Choose a location</option> : null}
-        {locations.map((location) => (
-          <option key={location.id} value={location.id}>
-            {location.display_name}
-          </option>
-        ))}
-      </select>
-    </label>
-  )
-}
+import { SkyBackdrop } from './SkyBackdrop'
 
 function SessionControls() {
   const queryClient = useQueryClient()
@@ -96,18 +63,31 @@ function CollectionStatus() {
   )
 }
 
+function useActiveScene() {
+  const { items, active } = useActiveLocation()
+  // Re-evaluated each minute so dawn, dusk and the sun's position stay current.
+  const now = useNow(60_000)
+  const scene = useMemo(
+    () => (active?.current ? sceneFor(active.current, now) : null),
+    [active, now],
+  )
+  return { items, active, scene }
+}
+
 export function Layout() {
-  const { units, setUnitSystem, theme, setTheme } = usePreferences()
+  const { units, setUnitSystem } = usePreferences()
+  const { items, active, scene } = useActiveScene()
 
   return (
-    <div className="app">
+    <div className={`app sky-${scene?.theme ?? 'clouds-night'}`}>
+      <SkyBackdrop scene={scene} />
       <header className="topbar">
         <Link to="/" className="brand">
           <img src="/favicon.svg" alt="" />
           Weather Analytics
         </Link>
         <nav className="toolbar" aria-label="Display options">
-          <LocationPicker />
+          <LiveBadge />
           <Segmented
             label="Units"
             value={units.system}
@@ -117,20 +97,10 @@ export function Layout() {
               { value: 'imperial', label: '°F' },
             ]}
           />
-          <label>
-            <span className="visually-hidden">Theme</span>
-            <select
-              value={theme}
-              onChange={(event) => setTheme(event.target.value as ThemePreference)}
-            >
-              <option value="system">System theme</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </select>
-          </label>
           <SessionControls />
         </nav>
       </header>
+      <LocationSwitcher items={items} activeId={active?.location.id} />
       <main className="main" id="main">
         <Outlet />
       </main>

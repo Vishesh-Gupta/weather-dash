@@ -21,3 +21,12 @@ export function writePreference(key: string, value: string): void {
     // Ignore: the preference just won't survive a reload.
   }
 }
+
+export function readNumberPreference(key: string): number | null {
+  try {
+    const value = Number(window.localStorage.getItem(key))
+    return Number.isInteger(value) && value > 0 ? value : null
+  } catch {
+    return null
+  }
+}

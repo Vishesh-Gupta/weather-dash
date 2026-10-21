@@ -3,15 +3,10 @@ import { createContext, use } from 'react'
 import type { ChartPalette } from './charts/palette'
 import type { Units, UnitSystem } from './lib/units'
 
-export type ThemePreference = 'system' | 'light' | 'dark'
-export type ResolvedTheme = 'light' | 'dark'
-
 export interface Preferences {
   units: Units
   setUnitSystem: (system: UnitSystem) => void
-  theme: ThemePreference
-  resolvedTheme: ResolvedTheme
-  setTheme: (theme: ThemePreference) => void
+  /** Charts sit on dark glass over the sky, so they always use the dark-surface palette. */
   palette: ChartPalette
 }
 
