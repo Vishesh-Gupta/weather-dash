@@ -30,6 +30,12 @@ class Settings:
     database_url: str
     # When set, the dashboard is read-only until an admin signs in.
     admin_password: str | None = None
+    # Signs session cookies. Random per process when unset (sessions end on restart).
+    session_secret: str | None = None
+    # Send session cookies only over HTTPS; enable behind TLS in production.
+    session_cookie_secure: bool = False
+    # Comma-separated origins allowed to call the API from a browser (local frontend dev).
+    cors_origins: tuple[str, ...] = ()
 
 
 def load_yaml_config(path: Path | None = None) -> dict[str, Any]:
@@ -80,6 +86,12 @@ def get_settings() -> Settings:
         ),
         database_url=build_database_url(config.get("database", {})),
         admin_password=os.getenv("ADMIN_PASSWORD") or None,
+        session_secret=os.getenv("SESSION_SECRET") or None,
+        session_cookie_secure=os.getenv("SESSION_COOKIE_SECURE", "").lower()
+        in {"1", "true", "yes"},
+        cors_origins=tuple(
+            origin.strip() for origin in os.getenv("CORS_ORIGINS", "").split(",") if origin.strip()
+        ),
     )
 
 
