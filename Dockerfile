@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.28
 
 # --- Frontend: build the React app -------------------------------------------
 FROM node:24-alpine AS frontend
@@ -11,7 +11,7 @@ COPY frontend/ ./
 RUN pnpm build
 
 # --- Python dependencies -----------------------------------------------------
-FROM ghcr.io/astral-sh/uv:0.11.32 AS uv
+FROM ghcr.io/astral-sh/uv:0.13.4 AS uv
 
 FROM python:3.13-slim AS python-deps
 COPY --from=uv /uv /usr/local/bin/uv
