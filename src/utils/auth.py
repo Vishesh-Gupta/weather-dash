@@ -1,4 +1,4 @@
-"""Admin sign-in for public deployments.
+"""Admin sign-in helpers for public deployments.
 
 Visitors can browse everything; only a signed-in admin can track or remove
 locations and trigger collection (which spends OpenWeather quota).
