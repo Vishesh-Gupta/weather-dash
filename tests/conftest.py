@@ -28,6 +28,7 @@ def isolated_settings(monkeypatch, tmp_path):
         "SESSION_SECRET",
         "SESSION_COOKIE_SECURE",
         "CORS_ORIGINS",
+        "FRONTEND_DIST",
     ):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv(
@@ -39,10 +40,6 @@ def isolated_settings(monkeypatch, tmp_path):
 
 
 def _clear_caches():
-    import streamlit as st
-
-    st.cache_data.clear()
-    st.cache_resource.clear()
     config.get_settings.cache_clear()
     if db_session.get_engine.cache_info().currsize:
         db_session.get_engine().dispose()
