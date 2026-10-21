@@ -4,6 +4,8 @@ Visitors get read-only access to all collected data. Managing locations and
 triggering collection require admin sign-in when ADMIN_PASSWORD is set.
 """
 
+import asyncio
+import contextlib
 import logging
 import secrets
 from contextlib import asynccontextmanager
@@ -13,8 +15,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
+from src.api.events import ChangeNotifier
 from src.api.frontend import SecurityHeadersMiddleware, mount_frontend
-from src.api.routes import collection, geocode, health, locations, overview, session
+from src.api.routes import collection, events, geocode, health, locations, overview, session
 from src.database.setup import init_db
 from src.utils.config import Settings, get_settings
 
@@ -24,9 +27,15 @@ SESSION_MAX_AGE_SECONDS = 7 * 24 * 3600
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI):
+async def lifespan(app: FastAPI):
     init_db()
-    yield
+    poller = asyncio.create_task(app.state.notifier.run())
+    try:
+        yield
+    finally:
+        poller.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await poller
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -41,6 +50,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url="/api/openapi.json",
         redoc_url=None,
     )
+    app.state.notifier = ChangeNotifier(settings.events_poll_seconds)
 
     secret = settings.session_secret
     if not secret:
@@ -67,7 +77,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
 
     api = APIRouter(prefix="/api")
-    for module in (health, session, overview, locations, geocode, collection):
+    for module in (health, session, overview, locations, geocode, collection, events):
         api.include_router(module.router)
     app.include_router(api)
 

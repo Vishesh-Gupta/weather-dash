@@ -166,6 +166,18 @@
             "title": "Id",
             "type": "integer"
           },
+          "kinds": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Comma-separated data kinds collected in the run",
+            "title": "Kinds"
+          },
           "locations_processed": {
             "title": "Locations Processed",
             "type": "integer"
@@ -186,7 +198,8 @@
           "finished_at",
           "status",
           "locations_processed",
-          "errors"
+          "errors",
+          "kinds"
         ],
         "title": "CollectionRunOut",
         "type": "object"
@@ -312,6 +325,25 @@
           "sunshine_duration"
         ],
         "title": "DailyHistoryOut",
+        "type": "object"
+      },
+      "ExtremeOut": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "value",
+          "date"
+        ],
+        "title": "ExtremeOut",
         "type": "object"
       },
       "ForecastEntryOut": {
@@ -692,6 +724,111 @@
         "title": "LocationOut",
         "type": "object"
       },
+      "NormalOut": {
+        "description": "Typical weather for a date, from the same time of year in earlier years.",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "precipitation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Average daily precipitation, mm",
+            "title": "Precipitation"
+          },
+          "record_high": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExtremeOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "record_low": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExtremeOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "temp_max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temp Max"
+          },
+          "temp_mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temp Mean"
+          },
+          "temp_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temp Min"
+          },
+          "wet_day_chance": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Share of days with at least 1 mm (0\u20131)",
+            "title": "Wet Day Chance"
+          },
+          "years": {
+            "description": "Number of earlier years the normal is based on",
+            "title": "Years",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "years",
+          "temp_max",
+          "temp_min",
+          "temp_mean",
+          "precipitation",
+          "wet_day_chance",
+          "record_high",
+          "record_low"
+        ],
+        "title": "NormalOut",
+        "type": "object"
+      },
       "ObservationOut": {
         "properties": {
           "clouds": {
@@ -910,6 +1047,64 @@
         "title": "ObservationOut",
         "type": "object"
       },
+      "OverviewItem": {
+        "properties": {
+          "air_quality": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AirQualityOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "current": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObservationOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location": {
+            "$ref": "#/components/schemas/LocationOut"
+          },
+          "normal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NormalOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Normal for the location's current day"
+          },
+          "today": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TodayRange"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Forecast high and low for the location's current day"
+          }
+        },
+        "required": [
+          "location",
+          "current",
+          "air_quality",
+          "today",
+          "normal"
+        ],
+        "title": "OverviewItem",
+        "type": "object"
+      },
       "SessionOut": {
         "properties": {
           "auth_required": {
@@ -948,6 +1143,24 @@
           "password"
         ],
         "title": "SignIn",
+        "type": "object"
+      },
+      "TodayRange": {
+        "properties": {
+          "high": {
+            "title": "High",
+            "type": "number"
+          },
+          "low": {
+            "title": "Low",
+            "type": "number"
+          }
+        },
+        "required": [
+          "high",
+          "low"
+        ],
+        "title": "TodayRange",
         "type": "object"
       },
       "ValidationError": {
@@ -1076,6 +1289,43 @@
         "summary": "Latest Run",
         "tags": [
           "collection"
+        ]
+      }
+    },
+    "/api/events": {
+      "get": {
+        "description": "Live updates. Emits `data` when a collection run finishes (with the kinds it\ncollected) and `locations` when locations are added or removed.",
+        "operationId": "events_api_events_get",
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "itemSchema": {
+                  "properties": {
+                    "data": {
+                      "type": "string"
+                    },
+                    "event": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "retry": {
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Events",
+        "tags": [
+          "events"
         ]
       }
     },
@@ -1527,6 +1777,105 @@
         ]
       }
     },
+    "/api/locations/{location_id}/normals": {
+      "get": {
+        "description": "Typical weather for each day, from the same dates in earlier years of history.",
+        "operationId": "location_normals_api_locations__location_id__normals_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "location_id",
+            "required": true,
+            "schema": {
+              "title": "Location Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "First day; defaults to today at the location",
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "First day; defaults to today at the location",
+              "title": "Start"
+            }
+          },
+          {
+            "description": "Last day (inclusive); defaults to start",
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Last day (inclusive); defaults to start",
+              "title": "End"
+            }
+          },
+          {
+            "description": "Days either side of each date",
+            "in": "query",
+            "name": "window",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "description": "Days either side of each date",
+              "maximum": 15,
+              "minimum": 1,
+              "title": "Window",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NormalOut"
+                  },
+                  "title": "Response Location Normals Api Locations  Location Id  Normals Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Location Normals",
+        "tags": [
+          "locations"
+        ]
+      }
+    },
     "/api/locations/{location_id}/observations": {
       "get": {
         "operationId": "observations_api_locations__location_id__observations_get",
@@ -1582,6 +1931,32 @@
           }
         },
         "summary": "Observations",
+        "tags": [
+          "locations"
+        ]
+      }
+    },
+    "/api/overview": {
+      "get": {
+        "description": "Every tracked location's latest conditions in one request, for the home page.",
+        "operationId": "overview_api_overview_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OverviewItem"
+                  },
+                  "title": "Response Overview Api Overview Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Overview",
         "tags": [
           "locations"
         ]
