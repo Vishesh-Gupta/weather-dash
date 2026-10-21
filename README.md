@@ -1,136 +1,114 @@
 # Weather Analytics Dashboard
 
-A powerful tool for analyzing and visualizing weather data patterns with automated data collection.
+[![CI](https://github.com/Vishesh-Gupta/weather-dash/actions/workflows/ci.yml/badge.svg)](https://github.com/Vishesh-Gupta/weather-dash/actions/workflows/ci.yml)
+
+Track locations and explore their weather: current conditions, 5-day forecasts and air quality
+collected from OpenWeather on a schedule, plus years of daily history from the Open-Meteo archive.
+Built to be hosted publicly: visitors browse, and only the admin manages what is tracked.
+
+![Forecast view in light mode](docs/screenshots/forecast-light.png)
+![History view in dark mode](docs/screenshots/history-dark.png)
 
 ## Features
 
-- 🌍 Search and track weather for locations worldwide
-- 📊 Interactive weather dashboards with beautiful visualizations
-- 📈 Historical weather data analysis
-- 🤖 Automated data collection scheduler
-- 🐘 PostgreSQL database for reliable data storage
-- 🐳 Fully containerized with Docker Compose
+- **Now**: current conditions with an observed temperature trend (24 hours to 30 days)
+- **Forecast**: daily summary table plus 3-hourly temperature, chance of precipitation and rain/snow amounts
+- **Air quality**: OpenWeather AQI level, pollutant breakdown and PM2.5/PM10 trend
+- **History**: up to 5 years of daily data backfilled from Open-Meteo, with extremes, monthly
+  precipitation, a sortable data table and CSV export
+- Times shown in each location's local time; metric/imperial and light/dark/system theme,
+  remembered per browser
+- **Public mode**: read-only for visitors, password-protected admin for adding/removing locations
+  and triggering collection
+- Accessible charts (labelled, keyboard navigable, never color-only) and a responsive layout
 
-## Quick Start
+## Architecture
 
-### Prerequisites
-
-- Docker and Docker Compose installed
-- OpenWeatherMap API key ([Get one here](https://openweathermap.org/api))
-
-### Setup
-
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd weather-analytics-dashboard
+```
+┌─────────────┐   /api/*    ┌──────────────────────┐        ┌────────────┐
+│  React SPA  │ ──────────▶ │  FastAPI (src/api)   │ ─────▶ │ PostgreSQL │
+│ (frontend/) │ ◀────────── │  + serves the SPA    │        │ (SQLite in │
+└─────────────┘    JSON     └──────────────────────┘        │  local dev)│
+                                                            └─────▲──────┘
+                            ┌──────────────────────┐              │
+                            │ Scheduler            │ ─────────────┘
+                            │ (src/data_collection)│ ◀── OpenWeather, Open-Meteo
+                            └──────────────────────┘
 ```
 
-2. Create a `.env` file from the example:
-```bash
-cp .env.example .env
-```
+- **Frontend**: React 19 + TypeScript (Vite), TanStack Router, Query, Table and Charts. API types
+  are generated from the backend's OpenAPI schema.
+- **API**: FastAPI with Pydantic models; serves the built frontend from the same origin.
+- **Scheduler**: collects every tracked location on an interval and refreshes history daily.
+- **Database**: SQLAlchemy models; PostgreSQL in Docker, SQLite for local development.
 
-3. Edit `.env` and add your OpenWeatherMap API key:
-```env
-WEATHER_API_KEY=your_actual_api_key_here
-```
+## Quick start (Docker)
 
-4. Start all services (with BuildKit for better caching):
-```bash
-DOCKER_BUILDKIT=1 docker-compose up -d --build
-```
-
-Or enable BuildKit permanently:
-```bash
-export DOCKER_BUILDKIT=1
-docker-compose up -d --build
-```
-
-5. Access the dashboard at http://localhost:8501
-
-### Services
-
-The Docker Compose setup includes:
-
-- **Dashboard**: Streamlit web application (port 8501)
-- **Scheduler**: Background service that collects weather data at regular intervals
-- **PostgreSQL**: Database for storing weather data
-
-### Configuration
-
-Edit `.env` to customize:
-
-- `WEATHER_API_KEY`: Your OpenWeatherMap API key (required)
-- `POSTGRES_USER`: PostgreSQL username (default: weather_user)
-- `POSTGRES_PASSWORD`: PostgreSQL password (default: weather_pass)
-- `POSTGRES_DB`: Database name (default: weather_db)
-- `SCHEDULER_INTERVAL_MINUTES`: How often to collect data (default: 60 minutes)
-- `DASHBOARD_PORT`: Port for the dashboard (default: 8501)
-
-### Commands
+Prerequisites: Docker with Compose, and a free [OpenWeather API key](https://openweathermap.org/api).
 
 ```bash
-# Start all services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# View dashboard logs only
-docker-compose logs -f dashboard
-
-# View scheduler logs only
-docker-compose logs -f scheduler
-
-# Stop all services
-docker-compose down
-
-# Stop and remove volumes (deletes database)
-docker-compose down -v
-
-# Rebuild containers
-docker-compose build
-
-# Restart a specific service
-docker-compose restart dashboard
+git clone https://github.com/Vishesh-Gupta/weather-dash.git
+cd weather-dash
+cp .env.example .env          # then set WEATHER_API_KEY
+docker compose up -d --build
 ```
+
+Open http://localhost:8000, choose **Manage**, search for a city and track it. Its current data is
+collected immediately and its history is backfilled; the scheduler keeps it up to date.
+
+Services: `app` (web app and API on port 8000), `scheduler` and `postgres`.
+
+```bash
+docker compose logs -f app        # or scheduler
+docker compose down               # stop (add -v to delete the database)
+```
+
+## Configuration
+
+Set these in `.env` (see [`.env.example`](.env.example)):
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `WEATHER_API_KEY` | | OpenWeather key (required to collect data) |
+| `ADMIN_PASSWORD` | unset | Enables public mode: visitors are read-only, admin signs in to manage |
+| `SESSION_SECRET` | random per start | Signs admin session cookies; set it so sign-ins survive restarts |
+| `SESSION_COOKIE_SECURE` | `false` | Set `true` when served over HTTPS |
+| `SCHEDULER_INTERVAL_MINUTES` | `60` | How often to collect |
+| `APP_PORT` | `8000` | Host port for the web app |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `weather_*` | Database credentials |
+| `DATABASE_URL` | | Full SQLAlchemy URL; overrides the `POSTGRES_*` values |
+
+`config.yaml` holds tuning such as the OpenWeather request delay and how many years of history to
+backfill.
+
+### Hosting publicly
+
+Set `ADMIN_PASSWORD` (a long random value), `SESSION_SECRET`, and `SESSION_COOKIE_SECURE=true`, and
+put the `app` service behind a TLS-terminating reverse proxy. Postgres is only bound to localhost.
+Without `ADMIN_PASSWORD` anyone who can reach the site can add locations and spend your API quota.
 
 ## Development
 
-### Local Development (without Docker)
+Requires Python 3.13 with [uv](https://docs.astral.sh/uv/), Node 24 with pnpm, and
+[just](https://github.com/casey/just).
 
-1. Install dependencies:
 ```bash
-uv sync
+just install      # Python and frontend dependencies
+just api          # API on :8000 (SQLite at data/weather.db unless POSTGRES_HOST/DATABASE_URL is set)
+just web          # frontend on :5173 with hot reload, proxying /api to :8000
+just scheduler    # collection loop (needs WEATHER_API_KEY)
+just check        # lint, typecheck and all tests, as CI runs them
 ```
 
-2. Set up environment variables:
-```bash
-export WEATHER_API_KEY=your_key_here
-```
+After changing API models or routes, run `just openapi` to regenerate `openapi.json` and the
+frontend's TypeScript types; CI fails if they are out of date.
 
-3. Initialize database:
-```bash
-just setup-db
-```
-
-4. Run dashboard:
-```bash
-just run
-```
-
-5. Run scheduler (in another terminal):
-```bash
-just scheduler
-```
+Backend tests run on SQLite by default; set `TEST_DATABASE_URL` to run them against PostgreSQL.
 
 ## API
 
-The JSON API serves everything the dashboard shows. Run it with `just api` (or the `api`
-compose service) and browse the interactive docs at http://localhost:8000/api/docs.
-
-Values are metric and timestamps are UTC; each location includes its `utc_offset_seconds`.
+Interactive docs are served at `/api/docs`. Values are metric and timestamps UTC; each location
+includes `utc_offset_seconds` for local time.
 
 | Method | Path | Access |
 |---|---|---|
@@ -143,19 +121,14 @@ Values are metric and timestamps are UTC; each location includes its `utc_offset
 | POST | `/api/locations`, `/api/collection-runs` | admin |
 | DELETE | `/api/locations/{id}` | admin |
 
-When `ADMIN_PASSWORD` is set, admin endpoints require signing in through `POST /api/session`,
-which sets an HTTP-only, `SameSite=Strict` session cookie. Without it (local use) every
-request is treated as admin.
+When `ADMIN_PASSWORD` is set, admin endpoints require signing in through `POST /api/session`, which
+sets an HTTP-only, `SameSite=Strict` session cookie. Failed sign-ins are rate limited.
 
-## Architecture
+## Data sources
 
-- **API**: FastAPI service exposing the collected data and admin operations
-- **Dashboard**: Streamlit application for visualizing weather data
-- **Scheduler**: Background service that periodically collects weather data for all tracked locations
-- **Database**: PostgreSQL database (or SQLite for local development)
-- **Data Collection**: OpenWeatherMap API integration with rate limiting
+- Current weather, forecasts, air quality and geocoding: [OpenWeather](https://openweathermap.org/)
+- Historical daily weather: [Open-Meteo](https://open-meteo.com/) (CC BY 4.0)
 
 ## License
 
-MIT
-
+[MIT](LICENSE)
