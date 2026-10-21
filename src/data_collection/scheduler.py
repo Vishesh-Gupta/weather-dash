@@ -1,6 +1,7 @@
-"""Background service that collects weather data on a fixed interval.
+"""Background service that collects weather data on per-kind intervals.
 
-Run with `python -m src.data_collection.scheduler`.
+Current conditions, air quality and forecasts each have their own interval
+(see config.yaml). Run with `python -m src.data_collection.scheduler`.
 """
 
 import logging
@@ -10,25 +11,40 @@ import threading
 
 import schedule
 
-from src.data_collection.collector import run_collection
+from src.data_collection.collector import ALL_KINDS, Kind, run_collection
 from src.database.setup import init_db
-from src.utils.config import get_settings
+from src.utils.config import Settings, get_settings
 
 logger = logging.getLogger(__name__)
 
 
-def collect_once() -> None:
+def collect_once(kinds: frozenset[Kind] = ALL_KINDS) -> None:
     try:
-        run = run_collection()
+        run = run_collection(kinds=kinds)
         logger.info(
-            "Run %s finished with status=%s (%d locations)",
+            "Run %s (%s) finished with status=%s (%d locations)",
             run.id,
+            run.kinds,
             run.status,
             run.locations_processed,
         )
     except Exception:
         # Never let a bad run kill the service; the next interval will try again.
         logger.exception("Collection run crashed")
+
+
+def intervals(settings: Settings) -> dict[Kind, int]:
+    return {
+        Kind.CURRENT: settings.current_interval_minutes,
+        Kind.AIR_QUALITY: settings.air_quality_interval_minutes,
+        Kind.FORECAST: settings.forecast_interval_minutes,
+    }
+
+
+def schedule_jobs(scheduler: schedule.Scheduler, settings: Settings) -> None:
+    for kind, minutes in intervals(settings).items():
+        scheduler.every(minutes).minutes.do(collect_once, frozenset({kind}))
+        logger.info("Collecting %s every %d minutes", kind.value, minutes)
 
 
 def main() -> int:
@@ -48,13 +64,12 @@ def main() -> int:
     signal.signal(signal.SIGTERM, handle_signal)
     signal.signal(signal.SIGINT, handle_signal)
 
-    interval = settings.scheduler_interval_minutes
-    logger.info("Collecting every %d minutes", interval)
-    collect_once()
-    schedule.every(interval).minutes.do(collect_once)
+    scheduler = schedule.Scheduler()
+    schedule_jobs(scheduler, settings)
+    collect_once()  # Everything once at startup, then each kind on its interval.
 
     while not stop.is_set():
-        schedule.run_pending()
+        scheduler.run_pending()
         stop.wait(timeout=1)
     return 0
 

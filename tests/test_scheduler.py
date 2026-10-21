@@ -17,3 +17,34 @@ def test_collect_once_survives_crash(monkeypatch, caplog):
     with caplog.at_level(logging.ERROR):
         scheduler.collect_once()
     assert "Collection run crashed" in caplog.text
+
+
+def test_each_kind_gets_its_own_job(monkeypatch):
+    import schedule
+
+    from src.data_collection.collector import Kind
+    from src.utils.config import get_settings
+
+    monkeypatch.setenv("CURRENT_INTERVAL_MINUTES", "5")
+    monkeypatch.setenv("AIR_QUALITY_INTERVAL_MINUTES", "30")
+    monkeypatch.setenv("FORECAST_INTERVAL_MINUTES", "60")
+    get_settings.cache_clear()
+
+    jobs = schedule.Scheduler()
+    scheduler.schedule_jobs(jobs, get_settings())
+    by_kind = {next(iter(job.job_func.args[0])): job.interval for job in jobs.jobs}
+    assert by_kind == {Kind.CURRENT: 5, Kind.AIR_QUALITY: 30, Kind.FORECAST: 60}
+
+
+def test_collect_once_passes_kinds(monkeypatch):
+    from src.data_collection.collector import Kind
+    from src.database.models import CollectionRun
+
+    seen = []
+    monkeypatch.setattr(
+        scheduler,
+        "run_collection",
+        lambda kinds: seen.append(kinds) or CollectionRun(id=1, status="success", kinds="current"),
+    )
+    scheduler.collect_once(frozenset({Kind.CURRENT}))
+    assert seen == [frozenset({Kind.CURRENT})]

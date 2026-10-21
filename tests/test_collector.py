@@ -211,3 +211,23 @@ def test_run_collection_can_target_locations(app_db):
     run = collector.run_collection(weather, StubHistoryClient(), now=NOW, location_ids=[paris.id])
     assert run.locations_processed == 1
     assert weather.calls == 3
+
+
+def test_runs_collect_only_requested_kinds(app_db):
+    add_locations((43.65, -79.38))
+    weather = StubWeatherClient()
+    run = collector.run_collection(
+        weather, StubHistoryClient(), now=NOW, kinds=frozenset({collector.Kind.CURRENT})
+    )
+    assert run.kinds == "current"
+    assert weather.calls == 1
+    assert count(WeatherObservation) == 1
+    assert count(ForecastEntry) == 0
+    assert count(AirQualityReading) == 0
+    # History still syncs when due, whatever the kinds.
+    assert count(DailyHistory) == 3
+
+
+def test_full_runs_record_every_kind(app_db):
+    run = collector.run_collection(StubWeatherClient(), StubHistoryClient(), now=NOW)
+    assert run.kinds == "current,forecast,air_quality"

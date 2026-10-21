@@ -26,7 +26,10 @@ class Settings:
     timeout_seconds: float
     open_meteo_archive_url: str
     backfill_years: int
-    scheduler_interval_minutes: int
+    # How often the scheduler collects each kind of data.
+    current_interval_minutes: int
+    air_quality_interval_minutes: int
+    forecast_interval_minutes: int
     database_url: str
     # When set, the dashboard is read-only until an admin signs in.
     admin_password: str | None = None
@@ -36,6 +39,8 @@ class Settings:
     session_cookie_secure: bool = False
     # Comma-separated origins allowed to call the API from a browser (local frontend dev).
     cors_origins: tuple[str, ...] = ()
+    # How often the API checks for newly collected data to push to browsers.
+    events_poll_seconds: float = 3.0
     # Built React app served by the API; skipped when it hasn't been built.
     frontend_dist: Path = PROJECT_ROOT / "frontend" / "dist"
 
@@ -67,6 +72,13 @@ def build_database_url(db_config: dict[str, Any]) -> str:
     return f"sqlite:///{sqlite_path}"
 
 
+def _interval(env: str, section: dict[str, Any], key: str, default: int) -> int:
+    value = int(os.getenv(env, section.get(key, default)))
+    if value < 1:
+        raise ValueError(f"{env} must be at least 1 minute")
+    return value
+
+
 @lru_cache
 def get_settings() -> Settings:
     config = load_yaml_config()
@@ -83,8 +95,14 @@ def get_settings() -> Settings:
             "archive_url", "https://archive-api.open-meteo.com/v1/archive"
         ),
         backfill_years=int(open_meteo.get("backfill_years", 5)),
-        scheduler_interval_minutes=int(
-            os.getenv("SCHEDULER_INTERVAL_MINUTES", scheduler.get("interval_minutes", 60))
+        current_interval_minutes=_interval(
+            "CURRENT_INTERVAL_MINUTES", scheduler, "current_minutes", 5
+        ),
+        air_quality_interval_minutes=_interval(
+            "AIR_QUALITY_INTERVAL_MINUTES", scheduler, "air_quality_minutes", 30
+        ),
+        forecast_interval_minutes=_interval(
+            "FORECAST_INTERVAL_MINUTES", scheduler, "forecast_minutes", 60
         ),
         database_url=build_database_url(config.get("database", {})),
         admin_password=os.getenv("ADMIN_PASSWORD") or None,
@@ -95,6 +113,9 @@ def get_settings() -> Settings:
             origin.strip() for origin in os.getenv("CORS_ORIGINS", "").split(",") if origin.strip()
         ),
         frontend_dist=Path(os.getenv("FRONTEND_DIST") or PROJECT_ROOT / "frontend" / "dist"),
+        events_poll_seconds=float(
+            os.getenv("EVENTS_POLL_SECONDS", config.get("events", {}).get("poll_seconds", 3))
+        ),
     )
 
 

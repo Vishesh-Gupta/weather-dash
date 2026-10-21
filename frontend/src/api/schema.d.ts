@@ -41,6 +41,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Events
+         * @description Live updates. Emits `data` when a collection run finishes (with the kinds it
+         *     collected) and `locations` when locations are added or removed.
+         */
+        get: operations["events_api_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/geocode": {
         parameters: {
             query?: never;
@@ -193,6 +214,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/locations/{location_id}/normals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Location Normals
+         * @description Typical weather for each day, from the same dates in earlier years of history.
+         */
+        get: operations["location_normals_api_locations__location_id__normals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/locations/{location_id}/observations": {
         parameters: {
             query?: never;
@@ -202,6 +243,26 @@ export interface paths {
         };
         /** Observations */
         get: operations["observations_api_locations__location_id__observations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Overview
+         * @description Every tracked location's latest conditions in one request, for the home page.
+         */
+        get: operations["overview_api_overview_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -275,6 +336,11 @@ export interface components {
             finished_at: string | null;
             /** Id */
             id: number;
+            /**
+             * Kinds
+             * @description Comma-separated data kinds collected in the run
+             */
+            kinds: string | null;
             /** Locations Processed */
             locations_processed: number;
             /**
@@ -313,6 +379,16 @@ export interface components {
             wind_gusts_max: number | null;
             /** Wind Speed Max */
             wind_speed_max: number | null;
+        };
+        /** ExtremeOut */
+        ExtremeOut: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Value */
+            value: number;
         };
         /** ForecastEntryOut */
         ForecastEntryOut: {
@@ -414,6 +490,40 @@ export interface components {
             /** Utc Offset Seconds */
             utc_offset_seconds: number | null;
         };
+        /**
+         * NormalOut
+         * @description Typical weather for a date, from the same time of year in earlier years.
+         */
+        NormalOut: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * Precipitation
+             * @description Average daily precipitation, mm
+             */
+            precipitation: number | null;
+            record_high: components["schemas"]["ExtremeOut"] | null;
+            record_low: components["schemas"]["ExtremeOut"] | null;
+            /** Temp Max */
+            temp_max: number | null;
+            /** Temp Mean */
+            temp_mean: number | null;
+            /** Temp Min */
+            temp_min: number | null;
+            /**
+             * Wet Day Chance
+             * @description Share of days with at least 1 mm (0–1)
+             */
+            wet_day_chance: number | null;
+            /**
+             * Years
+             * @description Number of earlier years the normal is based on
+             */
+            years: number;
+        };
         /** ObservationOut */
         ObservationOut: {
             /** Clouds */
@@ -458,6 +568,16 @@ export interface components {
             /** Wind Speed */
             wind_speed: number | null;
         };
+        /** OverviewItem */
+        OverviewItem: {
+            air_quality: components["schemas"]["AirQualityOut"] | null;
+            current: components["schemas"]["ObservationOut"] | null;
+            location: components["schemas"]["LocationOut"];
+            /** @description Normal for the location's current day */
+            normal: components["schemas"]["NormalOut"] | null;
+            /** @description Forecast high and low for the location's current day */
+            today: components["schemas"]["TodayRange"] | null;
+        };
         /** SessionOut */
         SessionOut: {
             /**
@@ -480,6 +600,13 @@ export interface components {
         SignIn: {
             /** Password */
             password: string;
+        };
+        /** TodayRange */
+        TodayRange: {
+            /** High */
+            high: number;
+            /** Low */
+            low: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -554,6 +681,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CollectionRunOut"] | null;
+                };
+            };
+        };
+    };
+    events_api_events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": unknown;
                 };
             };
         };
@@ -854,6 +1001,44 @@ export interface operations {
             };
         };
     };
+    location_normals_api_locations__location_id__normals_get: {
+        parameters: {
+            query?: {
+                /** @description First day; defaults to today at the location */
+                start?: string | null;
+                /** @description Last day (inclusive); defaults to start */
+                end?: string | null;
+                /** @description Days either side of each date */
+                window?: number;
+            };
+            header?: never;
+            path: {
+                location_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NormalOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     observations_api_locations__location_id__observations_get: {
         parameters: {
             query?: {
@@ -884,6 +1069,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    overview_api_overview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverviewItem"][];
                 };
             };
         };

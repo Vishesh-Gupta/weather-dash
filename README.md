@@ -39,7 +39,10 @@ Built to be hosted publicly: visitors browse, and only the admin manages what is
 - **Frontend**: React 19 + TypeScript (Vite), TanStack Router, Query, Table and Charts. API types
   are generated from the backend's OpenAPI schema.
 - **API**: FastAPI with Pydantic models; serves the built frontend from the same origin.
-- **Scheduler**: collects every tracked location on an interval and refreshes history daily.
+- **Scheduler**: collects current conditions, air quality and forecasts for every tracked location
+  on their own intervals, and refreshes history daily.
+- **Live updates**: the API watches for newly collected data and pushes it to open browsers over
+  Server-Sent Events (`/api/events`), so pages update without reloading.
 - **Database**: SQLAlchemy models; PostgreSQL in Docker, SQLite for local development.
 
 ## Quick start (Docker)
@@ -73,7 +76,9 @@ Set these in `.env` (see [`.env.example`](.env.example)):
 | `ADMIN_PASSWORD` | unset | Enables public mode: visitors are read-only, admin signs in to manage |
 | `SESSION_SECRET` | random per start | Signs admin session cookies; set it so sign-ins survive restarts |
 | `SESSION_COOKIE_SECURE` | `false` | Set `true` when served over HTTPS |
-| `SCHEDULER_INTERVAL_MINUTES` | `60` | How often to collect |
+| `CURRENT_INTERVAL_MINUTES` | `5` | How often to collect current conditions |
+| `AIR_QUALITY_INTERVAL_MINUTES` | `30` | How often to collect air quality |
+| `FORECAST_INTERVAL_MINUTES` | `60` | How often to collect the 5-day forecast |
 | `APP_PORT` | `8000` | Host port for the web app |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `weather_*` | Database credentials |
 | `DATABASE_URL` | | Full SQLAlchemy URL; overrides the `POSTGRES_*` values |
@@ -84,7 +89,9 @@ backfill.
 ### Hosting publicly
 
 Set `ADMIN_PASSWORD` (a long random value), `SESSION_SECRET`, and `SESSION_COOKIE_SECURE=true`, and
-put the `app` service behind a TLS-terminating reverse proxy. Postgres is only bound to localhost.
+put the `app` service behind a TLS-terminating reverse proxy that doesn't buffer `text/event-stream`
+responses (Caddy and nginx both honour the `X-Accel-Buffering: no` header the API sends). Postgres is
+only bound to localhost.
 Without `ADMIN_PASSWORD` anyone who can reach the site can add locations and spend your API quota.
 
 ## Development
@@ -115,6 +122,9 @@ includes `utc_offset_seconds` for local time.
 | GET | `/api/health` | public |
 | GET | `/api/locations`, `/api/locations/{id}` | public |
 | GET | `/api/locations/{id}/current`, `/observations?days=`, `/forecast`, `/air-quality?days=`, `/history?start=&end=` | public |
+| GET | `/api/locations/{id}/normals?start=&end=` | public |
+| GET | `/api/overview` (every location's latest conditions) | public |
+| GET | `/api/events` (Server-Sent Events: `ready`, `data`, `locations`) | public |
 | GET | `/api/collection-runs/latest` | public |
 | GET / POST / DELETE | `/api/session` (read, sign in, sign out) | public |
 | GET | `/api/geocode?q=` | admin |

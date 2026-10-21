@@ -6,12 +6,14 @@ from sqlalchemy import func, select
 
 from src.api.collection import start_collection
 from src.api.deps import AdminOnly, DbSession, NeedsApiKey
+from src.api.history import location_today, normals
 from src.api.schemas import (
     AirQualityOut,
     DailyHistoryOut,
     ForecastOut,
     LocationCreate,
     LocationOut,
+    NormalOut,
     ObservationOut,
 )
 from src.database import repository
@@ -120,6 +122,34 @@ def history(
     if end:
         query = query.where(DailyHistory.date <= end)
     return db.scalars(query.order_by(DailyHistory.date)).all()
+
+
+MAX_NORMAL_DAYS = 31
+
+
+@router.get("/{location_id}/normals", response_model=list[NormalOut])
+def location_normals(
+    location_id: int,
+    db: DbSession,
+    start: Annotated[
+        date | None, Query(description="First day; defaults to today at the location")
+    ] = None,
+    end: Annotated[
+        date | None, Query(description="Last day (inclusive); defaults to start")
+    ] = None,
+    window: Annotated[int, Query(ge=1, le=15, description="Days either side of each date")] = 7,
+):
+    """Typical weather for each day, from the same dates in earlier years of history."""
+    location = get_location_or_404(db, location_id)
+    start = start or location_today(location)
+    end = end or start
+    if start > end:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "start must not be after end")
+    if (end - start).days + 1 > MAX_NORMAL_DAYS:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, f"At most {MAX_NORMAL_DAYS} days per request"
+        )
+    return normals(db, location_id, start, end, window)
 
 
 @router.post(
