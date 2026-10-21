@@ -9,102 +9,62 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-weather_user} -d ${POSTGRES_DB:-weather_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - weather-network
-
-  dashboard:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: weather-dashboard
-    environment:
-      - WEATHER_API_KEY=${WEATHER_API_KEY}
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_USER=${POSTGRES_USER:-weather_user}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-weather_pass}
-      - POSTGRES_DB=${POSTGRES_DB:-weather_db}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
-    ports:
-      - "${DASHBOARD_PORT:-8501}:8501"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    volumes:
-      - ./src:/app/src:ro
-      - ./config.yaml:/app/config.yaml:ro
-      - ./pyproject.toml:/app/pyproject.toml:ro
-    networks:
-      - weather-network
-    command: sh -c "uv pip install -e . && streamlit run src/dashboard/app.py --server.port=8501 --server.address=0.0.0.0"
-
-  api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: weather-api
-    environment:
-      - WEATHER_API_KEY=${WEATHER_API_KEY}
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_USER=${POSTGRES_USER:-weather_user}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-weather_pass}
-      - POSTGRES_DB=${POSTGRES_DB:-weather_db}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
-      - SESSION_SECRET=${SESSION_SECRET:-}
-      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}
-      - CORS_ORIGINS=${CORS_ORIGINS:-}
-    ports:
-      - "${API_PORT:-8000}:8000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    volumes:
-      - ./src:/app/src:ro
-      - ./config.yaml:/app/config.yaml:ro
-    networks:
-      - weather-network
     restart: unless-stopped
-    command: uvicorn src.api.app:app --host 0.0.0.0 --port 8000 --proxy-headers
+    networks:
+      - weather-network
+
+  # Web app and JSON API on one port.
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: weather-dash:latest
+    container_name: weather-app
+    environment: &app-env
+      WEATHER_API_KEY: ${WEATHER_API_KEY:-}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER:-weather_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-weather_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-weather_db}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      SESSION_SECRET: ${SESSION_SECRET:-}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      SCHEDULER_INTERVAL_MINUTES: ${SCHEDULER_INTERVAL_MINUTES:-60}
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - weather-network
 
   scheduler:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: weather-dash:latest
     container_name: weather-scheduler
-    environment:
-      - WEATHER_API_KEY=${WEATHER_API_KEY}
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_USER=${POSTGRES_USER:-weather_user}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-weather_pass}
-      - POSTGRES_DB=${POSTGRES_DB:-weather_db}
-      - SCHEDULER_INTERVAL_MINUTES=${SCHEDULER_INTERVAL_MINUTES:-60}
+    environment: *app-env
     depends_on:
       postgres:
         condition: service_healthy
-      dashboard:
+      app:
         condition: service_started
-    volumes:
-      - ./src:/app/src:ro
-      - ./config.yaml:/app/config.yaml:ro
-      - ./pyproject.toml:/app/pyproject.toml:ro
+    # Not a web server, so the image's HTTP health check doesn't apply.
+    healthcheck:
+      disable: true
+    restart: unless-stopped
     networks:
       - weather-network
-    restart: unless-stopped
-    command: sh -c "uv pip install -e . && python -m src.data_collection.scheduler"
+    command: ["python", "-m", "src.data_collection.scheduler"]
 
 volumes:
   postgres_data:
-    driver: local
 
 networks:
   weather-network:
-    driver: bridge
-
