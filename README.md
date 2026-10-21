@@ -54,8 +54,10 @@ Built to be hosted publicly: visitors browse, and only the admin manages what is
 - **Frontend**: React 19 + TypeScript (Vite), TanStack Router, Query, Table and Charts. API types
   are generated from the backend's OpenAPI schema. The sky is a WebGL 2 shader (single
   Rayleigh/Mie scattering, procedural clouds) with a CSS gradient from the same colour model
-  where WebGL isn't available; it lowers its frame rate and resolution on slower devices and
-  pauses in background tabs.
+  where WebGL isn't available. It matches the machine: it draws at the display's refresh rate
+  (120 Hz on a 120 Hz screen), sharpens towards full device pixels while the GPU has headroom
+  (measured with GPU timer queries where the browser offers them), softens or slows down when
+  it doesn't, and pauses in background tabs.
 - **API**: FastAPI with Pydantic models; serves the built frontend from the same origin.
 - **Scheduler**: collects current conditions, air quality and forecasts for every tracked location
   on their own intervals, and refreshes history daily.

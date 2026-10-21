@@ -1,7 +1,9 @@
-// When to draw the sky. By default it draws on every display refresh, so a 120 Hz
-// screen gets 120 frames a second. If frames keep missing the refresh, the pacer
-// slows the sky down and asks for a smaller canvas; once things are calm again it
-// tries stepping back up.
+// When and how sharply to draw the sky, matched to the machine. It draws on every
+// display refresh (60, 120, 144 Hz: whatever the screen runs at). Where the GPU
+// reports how long each frame takes, resolution follows the headroom: sharper
+// while frames use little of the refresh, softer before they get tight. Without
+// GPU timings, frames that keep missing the refresh slow the sky down and shrink
+// it; once things are calm again it tries stepping back up.
 
 /** Slowest refresh when the device can't keep up; clouds drift slowly enough for it. */
 export const SLOWEST_FRAME_MS = 1000
@@ -16,14 +18,27 @@ const WARM_UP_MS = 2000
 /** Calm time at a reduced level before trying the next level up, doubling on failure. */
 const FIRST_PROBE_MS = 10_000
 const LONGEST_PROBE_MS = 160_000
+/**
+ * GPU time per frame, as a share of the refresh: sharpen below the lower bound,
+ * soften above the upper. One step changes the pixel count by about 1.56×, so a
+ * step up from just under 0.3 lands near 0.47 and can't bounce straight back.
+ */
+const GPU_HEADROOM = 0.3
+const GPU_TIGHT = 0.7
+const GPU_SAMPLES = 20
+const RESOLUTION_STEP = 1.25
+/** Time between resolution changes, so each level is measured before the next. */
+const RESOLUTION_SETTLE_MS = 1500
+const MIN_QUALITY = 0.5
 
 export class FramePacer {
   /** Minimum time between draws; 0 means every display refresh. */
   frameMs = 0
   /** The display's refresh interval, measured from animation frames. */
   refreshMs = 1000 / 60
-  /** Resolution multiplier, lowered along with the frame rate. */
+  /** Resolution multiplier: 1 is the default size, up to maxQuality (full device pixels). */
   quality = 1
+  maxQuality = 1
   private lastTick = 0
   private lastDraw = 0
   private warmUntil = 0
@@ -34,6 +49,11 @@ export class FramePacer {
   private calmSince = 0
   private probeMs = FIRST_PROBE_MS
   private probedAt = -Infinity
+  private gpuMs = 0
+  /** Once the GPU has reported a timing, resolution follows timings alone. */
+  private gpuTimed = false
+  private gpuSamples = 0
+  private resolutionChangedAt = 0
 
   /** Start measuring afresh, e.g. after the page was hidden. */
   reset() {
@@ -58,9 +78,36 @@ export class FramePacer {
       return { draw: false, resized: false }
     }
     const judge = this.lastDraw && now >= this.warmUntil
-    const resized = judge ? this.adapt(since, now) : false
+    const resized = judge ? this.adapt(since, now) || this.tuneResolution(now) : false
     this.lastDraw = now
     return { draw: true, resized }
+  }
+
+  /** How long the GPU took to draw a frame, when the browser can say. */
+  recordGpuTime(ms: number) {
+    this.gpuMs = this.gpuSamples ? this.gpuMs * 0.9 + ms * 0.1 : ms
+    this.gpuTimed = true
+    this.gpuSamples += 1
+  }
+
+  /** Follow the GPU's measured headroom: sharper when there's room, softer when tight. */
+  private tuneResolution(now: number): boolean {
+    if (this.gpuSamples < GPU_SAMPLES || now - this.resolutionChangedAt < RESOLUTION_SETTLE_MS) {
+      return false
+    }
+    // Judged against every refresh, the goal, even while the rate is reduced; and no
+    // sharpening until the full rate is back.
+    const share = this.gpuMs / this.refreshMs
+    let next = this.quality
+    if (share > GPU_TIGHT) next = Math.max(MIN_QUALITY, this.quality / RESOLUTION_STEP)
+    else if (share < GPU_HEADROOM && this.frameMs === 0) {
+      next = Math.min(this.maxQuality, this.quality * RESOLUTION_STEP)
+    }
+    if (next === this.quality) return false
+    this.quality = next
+    this.resolutionChangedAt = now
+    this.gpuSamples = 0
+    return true
   }
 
   /**
@@ -118,7 +165,8 @@ export class FramePacer {
     this.lateTotal = 0
     this.calmSince = 0
     this.frameMs = Math.min(SLOWEST_FRAME_MS, Math.max(expected * 2, cost * 3))
-    this.quality = Math.max(0.5, this.quality * 0.8)
+    this.quality = Math.max(MIN_QUALITY, this.quality * 0.8)
+    this.gpuSamples = 0
     return true
   }
 
@@ -127,7 +175,9 @@ export class FramePacer {
     this.calmSince = now
     const faster = this.frameMs / 2
     this.frameMs = faster < this.refreshMs * 1.5 ? 0 : faster
-    this.quality = Math.min(1, this.quality / 0.8)
+    // With GPU timings, tuneResolution decides sharpness; recovery only restores the rate.
+    if (!this.gpuTimed) this.quality = Math.min(this.maxQuality, this.quality / 0.8)
+    this.gpuSamples = 0
     return true
   }
 }

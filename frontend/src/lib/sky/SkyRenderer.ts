@@ -65,6 +65,9 @@ export class SkyRenderer {
   private flashStarted = -1e9
   private flashTarget: [number, number] = [0, 0]
   private readonly pacer = new FramePacer()
+  /** GPU timer queries, where the browser offers them (Chrome on desktop). */
+  private readonly timer: TimerQueryExtension | null
+  private readonly queries: WebGLQuery[] = []
   private size: [number, number] = [0, 0]
 
   static create(canvas: HTMLCanvasElement): SkyRenderer | null {
@@ -89,6 +92,7 @@ export class SkyRenderer {
     gl: WebGL2RenderingContext,
   ) {
     this.gl = gl
+    this.timer = gl.getExtension('EXT_disjoint_timer_query_webgl2') as TimerQueryExtension | null
     this.reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
 
     this.skyProgram = compile(gl, VERTEX, SKY_TEXTURE)
@@ -165,10 +169,15 @@ export class SkyRenderer {
     if (!this.running) this.draw(performance.now())
   }
 
-  /** Size in CSS pixels. The sky is soft, so it renders at reduced resolution. */
+  /**
+   * Size in CSS pixels. The sky is soft, so it starts at reduced resolution; the
+   * pacer raises it towards full device pixels when the GPU has room.
+   */
   resize(width: number, height: number) {
     this.size = [width, height]
-    const scale = Math.min(0.6, Math.max(0.35, 700 / Math.max(height, 1))) * this.pacer.quality
+    const base = Math.min(0.6, Math.max(0.35, 700 / Math.max(height, 1)))
+    this.pacer.maxQuality = Math.max(1, Math.min(window.devicePixelRatio || 1, 2) / base)
+    const scale = base * this.pacer.quality
     this.canvas.width = Math.max(1, Math.round(width * scale))
     this.canvas.height = Math.max(1, Math.round(height * scale))
     if (!this.running) this.draw(performance.now())
@@ -275,6 +284,37 @@ export class SkyRenderer {
       fx * CLOUD_SCALE + scene.seed[0] + wind[0] * time,
       fz * CLOUD_SCALE + scene.seed[1] + wind[1] * time,
     )
-    gl.drawArrays(gl.TRIANGLES, 0, 3)
+    this.timed(() => gl.drawArrays(gl.TRIANGLES, 0, 3))
   }
+
+  /**
+   * Run a draw inside a GPU timer query and pass finished timings to the pacer.
+   * Results arrive a few frames later and are read without waiting on the GPU.
+   */
+  private timed(drawCall: () => void) {
+    const { gl, timer, queries } = this
+    if (!timer || !this.running) return drawCall()
+    while (queries.length) {
+      const query = queries[0]!
+      if (!gl.getQueryParameter(query, gl.QUERY_RESULT_AVAILABLE)) break
+      // A disjoint reading (the GPU changed clocks or was interrupted) is meaningless.
+      if (!gl.getParameter(timer.GPU_DISJOINT_EXT)) {
+        this.pacer.recordGpuTime(gl.getQueryParameter(query, gl.QUERY_RESULT) / 1e6)
+      }
+      gl.deleteQuery(query)
+      queries.shift()
+    }
+    // Don't pile up queries on a GPU that never answers.
+    if (queries.length >= 8) return drawCall()
+    const query = gl.createQuery()
+    gl.beginQuery(timer.TIME_ELAPSED_EXT, query)
+    drawCall()
+    gl.endQuery(timer.TIME_ELAPSED_EXT)
+    queries.push(query)
+  }
+}
+
+interface TimerQueryExtension {
+  TIME_ELAPSED_EXT: GLenum
+  GPU_DISJOINT_EXT: GLenum
 }

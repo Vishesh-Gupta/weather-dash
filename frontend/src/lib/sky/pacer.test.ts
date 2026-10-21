@@ -99,4 +99,80 @@ describe('FramePacer', () => {
     expect(pacer.frameMs).toBe(0)
     expect(pacer.quality).toBeCloseTo(1)
   })
+
+  describe('with GPU timings', () => {
+    /** Frames at `hz`, each reporting `gpuMs` of GPU time. */
+    function timed(pacer: FramePacer, hz: number, seconds: number, gpuMs: number, start = 1000) {
+      const interval = 1000 / hz
+      let resized = 0
+      for (let i = 0; i < hz * seconds; i++) {
+        pacer.recordGpuTime(gpuMs)
+        if (pacer.tick(start + i * interval).resized) resized++
+      }
+      return { resized, end: start + hz * seconds * interval }
+    }
+
+    it('sharpens up to full device pixels while the GPU has room', () => {
+      const pacer = new FramePacer()
+      pacer.maxQuality = 3
+      timed(pacer, 120, 20, 0.5)
+      expect(pacer.quality).toBe(3)
+      expect(pacer.frameMs).toBe(0)
+    })
+
+    it('softens when frames use most of the refresh', () => {
+      const pacer = new FramePacer()
+      pacer.maxQuality = 3
+      // 7 ms of an 8.3 ms refresh at 120 Hz.
+      timed(pacer, 120, 10, 7)
+      expect(pacer.quality).toBeLessThan(1)
+      expect(pacer.frameMs).toBe(0)
+    })
+
+    it('holds steady in between', () => {
+      const pacer = new FramePacer()
+      pacer.maxQuality = 3
+      // 8 ms of a 16.7 ms refresh at 60 Hz: neither roomy nor tight.
+      const { resized } = timed(pacer, 60, 20, 8)
+      expect(resized).toBe(0)
+      expect(pacer.quality).toBe(1)
+    })
+
+    it("doesn't bounce after sharpening", () => {
+      const pacer = new FramePacer()
+      pacer.maxQuality = 3
+      // Cost grows with pixel count: 2 ms at quality 1 on a 120 Hz display.
+      let now = 1000
+      let changes = 0
+      for (let i = 0; i < 120 * 30; i++) {
+        pacer.recordGpuTime(2 * pacer.quality * pacer.quality)
+        if (pacer.tick(now).resized) changes++
+        now += 1000 / 120
+      }
+      // Up from 1 while under 30% (2.5 ms) of the refresh, then it stays put.
+      expect(pacer.quality).toBeCloseTo(1.25)
+      expect(changes).toBe(1)
+    })
+
+    it('leaves sharpness to the GPU timings when recovering the frame rate', () => {
+      const pacer = new FramePacer()
+      pacer.maxQuality = 3
+      // Mid-range GPU load at 120 Hz, then a stretch of late frames, then calm again.
+      const steady = timed(pacer, 120, 5, 4)
+      const before = pacer.quality
+      let now = steady.end
+      for (let i = 0; i < 20; i++) {
+        pacer.recordGpuTime(4)
+        pacer.tick(now)
+        now += 50
+      }
+      expect(pacer.frameMs).toBeGreaterThan(0)
+      const lowered = pacer.quality
+      timed(pacer, 120, 60, 4, now)
+      expect(pacer.frameMs).toBe(0)
+      // Sharpness came back only through the measured headroom, never above it.
+      expect(lowered).toBeLessThan(before)
+      expect(pacer.quality).toBeLessThanOrEqual(before)
+    })
+  })
 })
