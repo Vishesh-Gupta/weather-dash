@@ -6,9 +6,10 @@ API route falls back to index.html so client-side routes work on reload.
 
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.datastructures import MutableHeaders
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
@@ -22,15 +23,33 @@ SECURITY_HEADERS = {
 }
 
 
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        response = await call_next(request)
-        for name, value in SECURITY_HEADERS.items():
-            response.headers.setdefault(name, value)
+class SecurityHeadersMiddleware:
+    """Add security headers to every HTTP response.
+
+    Plain ASGI rather than BaseHTTPMiddleware so streamed responses (the live
+    event stream) pass straight through.
+    """
+
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
         # The interactive API docs load their UI from a CDN, so they keep the default policy.
-        if request.url.path.startswith("/api/docs"):
-            del response.headers["Content-Security-Policy"]
-        return response
+        skip_csp = scope["path"].startswith("/api/docs")
+
+        async def send_with_headers(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                for name, value in SECURITY_HEADERS.items():
+                    if skip_csp and name == "Content-Security-Policy":
+                        continue
+                    headers.setdefault(name, value)
+            await send(message)
+
+        await self.app(scope, receive, send_with_headers)
 
 
 def mount_frontend(app: FastAPI, dist: Path) -> bool:
