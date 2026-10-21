@@ -1,0 +1,18 @@
+{
+  "latitude": 43.65,
+  "longitude": -79.38,
+  "timezone": "UTC",
+  "daily_units": {"time": "iso8601", "temperature_2m_max": "°C", "wind_speed_10m_max": "m/s", "sunshine_duration": "s"},
+  "daily": {
+    "time": ["2025-10-17", "2025-10-18", "2025-10-19", "2025-10-20"],
+    "temperature_2m_max": [15.2, 13.8, 11.1, null],
+    "temperature_2m_min": [6.4, 7.9, 4.2, null],
+    "temperature_2m_mean": [10.6, 10.9, 7.5, null],
+    "precipitation_sum": [0.0, 4.6, 0.3, null],
+    "rain_sum": [0.0, 4.6, 0.3, null],
+    "snowfall_sum": [0.0, 0.0, 0.0, null],
+    "wind_speed_10m_max": [5.4, 8.1, 6.7, null],
+    "wind_gusts_10m_max": [11.2, 16.8, 13.5, null],
+    "sunshine_duration": [31540.2, 12011.5, 28803.9, null]
+  }
+}
