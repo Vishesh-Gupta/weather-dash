@@ -23,11 +23,16 @@ jobs:
 
       - name: Lint
         run: |
-          uv run ruff check src tests
-          uv run ruff format --check src tests
+          uv run ruff check src tests scripts
+          uv run ruff format --check src tests scripts
 
       - name: Test
         run: uv run pytest --cov=src --cov-report=term-missing
+
+      - name: OpenAPI schema is up to date
+        run: |
+          uv run python -m scripts.export_openapi
+          git diff --exit-code openapi.json
 
   postgres:
     runs-on: ubuntu-latest
@@ -62,3 +67,43 @@ jobs:
 
       - name: Test against PostgreSQL
         run: uv run pytest
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: API types match openapi.json
+        run: |
+          pnpm generate:api
+          git diff --exit-code src/api/schema.d.ts
+
+      - name: Lint and format
+        run: |
+          pnpm lint
+          pnpm format:check
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
