@@ -5,6 +5,7 @@ import { useMemo } from 'react'
 import { api } from '../api/client'
 import { latestRunQuery, queryKeys, sessionQuery } from '../api/queries'
 import { sceneFor } from '../lib/scene'
+import { skyStyle } from '../lib/skyStyle'
 import { useActiveLocation } from '../lib/useActiveLocation'
 import { useNow } from '../lib/useNow'
 import { usePreferences } from '../preferences-context'
@@ -65,10 +66,10 @@ function CollectionStatus() {
 
 function useActiveScene() {
   const { items, active } = useActiveLocation()
-  // Re-evaluated each minute so dawn, dusk and the sun's position stay current.
+  // Re-evaluated each minute so the sun and moon keep moving across the sky.
   const now = useNow(60_000)
   const scene = useMemo(
-    () => (active?.current ? sceneFor(active.current, now) : null),
+    () => (active?.current ? sceneFor(active.current, active.location, now) : null),
     [active, now],
   )
   return { items, active, scene }
@@ -79,7 +80,7 @@ export function Layout() {
   const { items, active, scene } = useActiveScene()
 
   return (
-    <div className={`app sky-${scene?.theme ?? 'clouds-night'}`}>
+    <div className="app" style={scene ? skyStyle(scene.palette) : undefined}>
       <SkyBackdrop scene={scene} />
       <header className="topbar">
         <Link to="/" className="brand">

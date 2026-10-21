@@ -48,13 +48,47 @@ describe('the page is the sky', () => {
     mockApi(routesWithParis())
     const { container, router } = renderApp('/locations/2')
     await screen.findByRole('region', { name: /Current weather in Paris/ })
-    await waitFor(() => expect(container.querySelector('.app')).toHaveClass('sky-rain'))
+    const app = () => container.querySelector<HTMLElement>('.app')!
+    const zenith = () => app().style.getPropertyValue('--sky-zenith')
+    await waitFor(() => expect(zenith()).toMatch(/^#[0-9a-f]{6}$/))
+    const rainy = zenith()
+
+    // Rain greys the sky: Paris is far less saturated than Toronto's partly cloudy noon.
+    const spread = (hex: string) => {
+      const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
+      return Math.max(...c) - Math.min(...c)
+    }
+    await router.navigate({ to: '/locations/$locationId', params: { locationId: 1 } })
+    await screen.findByRole('region', { name: /Current weather in Toronto/ })
+    await waitFor(() => expect(zenith()).not.toBe(rainy))
+    expect(spread(rainy)).toBeLessThan(spread(zenith()))
 
     // The overview keeps the last location's sky.
+    await router.navigate({ to: '/locations/$locationId', params: { locationId: 2 } })
+    await screen.findByRole('region', { name: /Current weather in Paris/ })
     await router.navigate({ to: '/' })
     await screen.findByRole('heading', { name: 'Weather now' })
-    expect(container.querySelector('.app')).toHaveClass('sky-rain')
+    expect(zenith()).toBe(rainy)
     expect(window.localStorage.getItem('last-location')).toBe('2')
+  })
+
+  it('falls back to a CSS sky without WebGL', async () => {
+    mockApi()
+    const { container } = renderApp('/locations/1')
+    await screen.findByRole('region', { name: /Current weather/ })
+    expect(container.querySelector('.sky-backdrop')).toHaveAttribute('data-renderer', 'css')
+    expect(container.querySelector('.sky-canvas')).not.toBeVisible()
+  })
+
+  it("gives every overview card its own location's sky", async () => {
+    mockApi(routesWithParis())
+    renderApp('/')
+    const cards = await screen.findAllByRole('link', { name: /Toronto|Paris/ })
+    const skies = cards
+      .filter((card) => card.classList.contains('location-card'))
+      .map((card) => card.style.getPropertyValue('--sky-zenith'))
+    expect(skies).toHaveLength(2)
+    expect(skies[0]).not.toBe(skies[1])
   })
 
   it('draws the sun on its arc with sunrise, sunset and day length', async () => {

@@ -34,7 +34,9 @@ export function SignInPage() {
   return (
     <div className="stack" style={{ maxWidth: 420 }}>
       <h1>Admin sign-in</h1>
-      <p className="subtle">Sign in to track or remove locations and trigger data collection.</p>
+      <p className="subtle on-sky">
+        Sign in to track or remove locations and trigger data collection.
+      </p>
       <form className="card stack" onSubmit={submit}>
         <div className="field">
           <label htmlFor="password">Password</label>

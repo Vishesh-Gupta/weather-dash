@@ -65,7 +65,7 @@ export function AirQualityPage() {
 
   return (
     <div className="stack">
-      <section aria-label="Current air quality">
+      <section className="card" aria-label="Current air quality">
         <AqiStatus aqi={view.latest.aqi} />
         <p className="caption" style={{ margin: '4px 0 0' }}>
           Measured {formatDayTime(toLocationTime(view.latest.observed_at, offset))} local time ·

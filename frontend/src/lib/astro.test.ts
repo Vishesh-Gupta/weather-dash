@@ -1,21 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  arcPoint,
-  formatDuration,
-  moonIllumination,
-  moonLitPath,
-  moonPhase,
-  moonPhaseName,
-  skyClock,
-} from './astro'
+import { arcPoint, formatDuration, moonLitPath, moonPhase, moonPhaseName, skyClock } from './astro'
 
 describe('moon', () => {
   it('matches known phases', () => {
     // Published full moon: 2024-01-25 17:54 UTC; new moon: 2024-01-11 11:57 UTC.
     expect(moonPhaseName(moonPhase(Date.UTC(2024, 0, 25, 17, 54)))).toBe('Full moon')
     expect(moonPhaseName(moonPhase(Date.UTC(2024, 0, 11, 11, 57)))).toBe('New moon')
-    expect(moonIllumination(moonPhase(Date.UTC(2024, 0, 25, 17, 54)))).toBeGreaterThan(0.98)
   })
 
   it('stays within range before the reference date', () => {

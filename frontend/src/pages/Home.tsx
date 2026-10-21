@@ -35,7 +35,7 @@ export function HomePage() {
     <div className="stack">
       <div>
         <h1>Weather now</h1>
-        <p className="subtle" style={{ margin: '4px 0 0' }}>
+        <p className="subtle on-sky" style={{ margin: '8px 0 0' }}>
           Live conditions for every tracked location. Values update on their own as new readings
           arrive.
         </p>
