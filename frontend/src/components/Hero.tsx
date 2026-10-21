@@ -1,10 +1,12 @@
 import { Link } from '@tanstack/react-router'
 
 import type { Location, Observation } from '../api/client'
-import { daylightProgress, skyFor, themeFor } from '../lib/sky'
+import { sceneFor } from '../lib/scene'
+import { skyFor } from '../lib/sky'
 import { formatTime, toLocationTime } from '../lib/time'
 import type { Units } from '../lib/units'
 import { relativeTime, useNow } from '../lib/useNow'
+import { SunArc } from './SunArc'
 import { WeatherIcon } from './WeatherIcon'
 
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1)
@@ -12,45 +14,13 @@ const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1
 /** The location's wall-clock time, ticking. */
 export function LocalClock({ offset }: { offset: number | null }) {
   const now = useNow(15_000)
-  return (
-    <time dateTime={new Date(now).toISOString()}>
-      {formatTime(toLocationTime(new Date(now).toISOString(), offset))}
-    </time>
-  )
+  const iso = new Date(now).toISOString()
+  return <time dateTime={iso}>{formatTime(toLocationTime(iso, offset))}</time>
 }
 
 export function UpdatedAgo({ iso }: { iso: string }) {
   const now = useNow(30_000)
   return <>{relativeTime(Date.parse(iso), now)}</>
-}
-
-function SunBar({ obs, offset }: { obs: Observation; offset: number | null }) {
-  const now = useNow(60_000)
-  if (!obs.sunrise || !obs.sunset) return null
-  const progress = daylightProgress(now, obs.sunrise, obs.sunset)
-  const sunrise = formatTime(toLocationTime(obs.sunrise, offset))
-  const sunset = formatTime(toLocationTime(obs.sunset, offset))
-  return (
-    <div className="sunbar">
-      <span>Sunrise {sunrise}</span>
-      <div
-        className="sunbar-track"
-        role="meter"
-        aria-label="Daylight elapsed"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={progress == null ? 0 : Math.round(progress * 100)}
-        aria-valuetext={
-          progress == null ? 'After sunset' : `${Math.round(progress * 100)}% of daylight elapsed`
-        }
-      >
-        {progress != null ? (
-          <span className="sunbar-sun" style={{ left: `${progress * 100}%` }} />
-        ) : null}
-      </div>
-      <span>Sunset {sunset}</span>
-    </div>
-  )
 }
 
 interface HeroProps {
@@ -60,14 +30,12 @@ interface HeroProps {
   today?: { high: number; low: number } | null
 }
 
+/** Current conditions drawn straight onto the page's sky, with the sun's arc. */
 export function Hero({ location, obs, units, today }: HeroProps) {
   const sky = skyFor(obs)
   const offset = location.utc_offset_seconds
   return (
-    <section
-      className={`hero sky-${themeFor(sky)}`}
-      aria-label={`Current weather in ${location.display_name}`}
-    >
+    <section className="hero" aria-label={`Current weather in ${location.display_name}`}>
       <div className="hero-top">
         <div>
           <div className="hero-place">{location.name}</div>
@@ -94,7 +62,7 @@ export function Hero({ location, obs, units, today }: HeroProps) {
           ) : null}
         </div>
       </div>
-      <SunBar obs={obs} offset={offset} />
+      <SunArc obs={obs} offset={offset} />
       <div className="hero-foot">
         Observed {formatTime(toLocationTime(obs.observed_at, offset))} · updated{' '}
         <UpdatedAgo iso={obs.observed_at} />
@@ -112,12 +80,13 @@ interface CardProps {
 }
 
 export function LocationCard({ location, obs, units, today, aqi }: CardProps) {
-  const sky = obs ? skyFor(obs) : null
+  const now = useNow(60_000)
+  const scene = obs ? sceneFor(obs, now) : null
   return (
     <Link
       to="/locations/$locationId"
       params={{ locationId: location.id }}
-      className={`location-card sky-${sky ? themeFor(sky) : 'clouds-day'}`}
+      className={`location-card sky-${scene?.theme ?? 'clouds-day'}`}
     >
       <div className="card-top">
         <div>
@@ -127,7 +96,7 @@ export function LocationCard({ location, obs, units, today, aqi }: CardProps) {
             <LocalClock offset={location.utc_offset_seconds} />
           </div>
         </div>
-        {sky ? <WeatherIcon sky={sky} size={56} /> : null}
+        {scene ? <WeatherIcon sky={scene.sky} size={56} /> : null}
       </div>
       {obs ? (
         <>
