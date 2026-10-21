@@ -72,6 +72,23 @@ def test_slow_subscribers_keep_the_latest_events():
     assert len(items) == 16
 
 
+def test_ensure_baseline_only_reads_once():
+    reads = []
+
+    def reader():
+        reads.append(1)
+        return version()
+
+    notifier = ChangeNotifier(1, version_reader=reader)
+
+    async def scenario():
+        await notifier.ensure_baseline()
+        await notifier.ensure_baseline()
+
+    run(scenario())
+    assert len(reads) == 1
+
+
 def test_subscriber_limit_and_rebaseline():
     notifier = ChangeNotifier(1, version_reader=version, max_subscribers=1)
 
@@ -123,8 +140,7 @@ def test_event_stream_pushes_finished_runs_and_new_locations(live_client):
         lines = response.iter_lines()
         assert read_events(lines, 1)[0] == ("ready", {"poll_seconds": 0.05})
 
-        # Give the poller a moment to take its baseline, then change the data.
-        threading.Event().wait(0.3)
+        # Change the data immediately after "ready"; it must still be reported.
         with session_scope() as session:
             repository.add_location(session, name="Oslo", country="NO", lat=59.91, lon=10.75)
             session.add(

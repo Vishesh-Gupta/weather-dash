@@ -28,6 +28,8 @@ async def events(
     collected) and `locations` when locations are added or removed."""
     queue = notifier.subscribe()
     try:
+        # Baseline before "ready": anything stored after the client sees it gets pushed.
+        await notifier.ensure_baseline()
         yield ServerSentEvent(
             event="ready", data={"poll_seconds": notifier.poll_seconds}, retry=RECONNECT_MS
         )

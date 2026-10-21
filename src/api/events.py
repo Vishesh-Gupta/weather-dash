@@ -122,6 +122,11 @@ class ChangeNotifier:
                 queue.get_nowait()
             queue.put_nowait((event, data))
 
+    async def ensure_baseline(self) -> None:
+        """Record the current state if none is held, so later changes are all reported."""
+        if self._version is None:
+            self._version = await anyio.to_thread.run_sync(self.read_version)
+
     async def check(self) -> None:
         """Compare the database with the last seen version and publish any changes."""
         version = await anyio.to_thread.run_sync(self.read_version)
