@@ -6,11 +6,15 @@ Track locations and explore their weather: current conditions, 5-day forecasts a
 collected from OpenWeather on a schedule, plus years of daily history from the Open-Meteo archive.
 Built to be hosted publicly: visitors browse, and only the admin manages what is tracked.
 
-![Forecast view in light mode](docs/screenshots/forecast-light.png)
-![History view in dark mode](docs/screenshots/history-dark.png)
+![Overview of every location, each card tinted by its current sky](docs/screenshots/overview-light.png)
+![A location's live conditions and observed trend in dark mode](docs/screenshots/location-dark.png)
 
 ## Features
 
+- **Live**: pages update on their own within seconds of new data being collected, with a live
+  status indicator, ticking local clocks and "updated … ago" labels
+- **Overview**: every location as a card tinted by its current sky (clear, cloudy, rain, snow, mist,
+  day or night), with today's range and air quality
 - **Now**: current conditions with an observed temperature trend (24 hours to 30 days)
 - **Forecast**: daily summary table plus 3-hourly temperature, chance of precipitation and rain/snow amounts
 - **Air quality**: OpenWeather AQI level, pollutant breakdown and PM2.5/PM10 trend
