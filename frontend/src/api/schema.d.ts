@@ -157,6 +157,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/locations/{location_id}/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Alerts
+         * @description Government weather alerts in force (empty unless One Call 3.0 is enabled).
+         */
+        get: operations["alerts_api_locations__location_id__alerts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/locations/{location_id}/current": {
         parameters: {
             query?: never;
@@ -206,6 +226,27 @@ export interface paths {
          * @description Daily history from the Open-Meteo archive.
          */
         get: operations["history_api_locations__location_id__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/locations/{location_id}/hourly": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Hourly
+         * @description The next 48 hours hour by hour, and precipitation for the next two hours in
+         *     15-minute steps (Open-Meteo).
+         */
+        get: operations["hourly_api_locations__location_id__hourly_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -322,6 +363,30 @@ export interface components {
             pm2_5: number | null;
             /** So2 */
             so2: number | null;
+        };
+        /** AlertOut */
+        AlertOut: {
+            /** Description */
+            description: string | null;
+            /** Ends At */
+            ends_at: string | null;
+            /**
+             * Event
+             * @description The alert's name, e.g. "Severe Thunderstorm Warning"
+             */
+            event: string;
+            /**
+             * Sender
+             * @description The issuing agency
+             */
+            sender: string | null;
+            /** Starts At */
+            starts_at: string | null;
+            /**
+             * Tags
+             * @description Categories such as Wind or Flood
+             */
+            tags: string[];
         };
         /** CollectRequest */
         CollectRequest: {
@@ -458,6 +523,66 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** HourlyEntryOut */
+        HourlyEntryOut: {
+            /** Clouds */
+            clouds: number | null;
+            /** Feels Like */
+            feels_like: number | null;
+            /**
+             * Forecast For
+             * Format: date-time
+             */
+            forecast_for: string;
+            /** Humidity */
+            humidity: number | null;
+            /** Is Day */
+            is_day: boolean | null;
+            /**
+             * Pop
+             * @description Chance of precipitation, 0–1
+             */
+            pop: number | null;
+            /**
+             * Precipitation
+             * @description mm in the hour
+             */
+            precipitation: number | null;
+            /**
+             * Rain
+             * @description mm in the hour, showers included
+             */
+            rain: number | null;
+            /**
+             * Snowfall
+             * @description cm in the hour
+             */
+            snowfall: number | null;
+            /** Temp */
+            temp: number;
+            /** Uv Index */
+            uv_index: number | null;
+            /**
+             * Weather Code
+             * @description WMO weather interpretation code
+             */
+            weather_code: number | null;
+            /** Wind Deg */
+            wind_deg: number | null;
+            /** Wind Gust */
+            wind_gust: number | null;
+            /** Wind Speed */
+            wind_speed: number | null;
+        };
+        /** HourlyOut */
+        HourlyOut: {
+            /** Hours */
+            hours: components["schemas"]["HourlyEntryOut"][];
+            /** Issued At */
+            issued_at: string | null;
+            /** Nowcast */
+            nowcast: components["schemas"]["NowcastEntryOut"][];
+        };
         /** LocationCreate */
         LocationCreate: {
             /** Country */
@@ -524,6 +649,25 @@ export interface components {
              */
             years: number;
         };
+        /** NowcastEntryOut */
+        NowcastEntryOut: {
+            /**
+             * Forecast For
+             * Format: date-time
+             * @description Start of the 15-minute slot
+             */
+            forecast_for: string;
+            /**
+             * Precipitation
+             * @description mm in the 15 minutes
+             */
+            precipitation: number | null;
+            /**
+             * Snowfall
+             * @description cm in the 15 minutes
+             */
+            snowfall: number | null;
+        };
         /** ObservationOut */
         ObservationOut: {
             /** Clouds */
@@ -571,6 +715,11 @@ export interface components {
         /** OverviewItem */
         OverviewItem: {
             air_quality: components["schemas"]["AirQualityOut"] | null;
+            /**
+             * Alerts
+             * @description Weather alerts in force
+             */
+            alerts: components["schemas"]["AlertOut"][];
             current: components["schemas"]["ObservationOut"] | null;
             location: components["schemas"]["LocationOut"];
             /** @description Normal for the location's current day */
@@ -580,6 +729,11 @@ export interface components {
         };
         /** SessionOut */
         SessionOut: {
+            /**
+             * Alerts Enabled
+             * @description Whether weather alerts are collected (OpenWeather One Call 3.0)
+             */
+            alerts_enabled: boolean;
             /**
              * Auth Required
              * @description Whether an admin password is configured
@@ -903,6 +1057,37 @@ export interface operations {
             };
         };
     };
+    alerts_api_locations__location_id__alerts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                location_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     current_conditions_api_locations__location_id__current_get: {
         parameters: {
             query?: never;
@@ -988,6 +1173,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DailyHistoryOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hourly_api_locations__location_id__hourly_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                location_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HourlyOut"];
                 };
             };
             /** @description Validation Error */

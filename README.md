@@ -30,10 +30,12 @@ Built to be hosted publicly: visitors browse, and only the admin manages what is
   plus search (admins can jump straight to adding an untracked place)
 - **Overview**: every location as a card showing its own current sky, with feels-like, wind,
   humidity, today's range, air quality and how today compares with normal
-- **Now**: current conditions, the next 24 hours, and an instrument for each reading that says
-  what it means: wind on the Beaufort scale with a direction dial, humidity with dew point and
-  how it feels, the 3-hour pressure tendency, rain or snow now or the chance in the next 6 hours,
-  cloud cover and visibility in words, air quality, and today against the climate normal and
+- **Now**: current conditions, the next 48 hours hour by hour with a temperature curve, and an
+  instrument for each reading that says what it means: wind on the Beaufort scale with a direction
+  dial, humidity with dew point and how it feels, the 3-hour pressure tendency, rain or snow in
+  the next two hours in 15-minute steps ("Rain starting around 11:45", "stopping around 15:15"),
+  the UV index with WHO advice and today's peak, cloud cover and visibility in words, air
+  quality, and today against the climate normal and
   record. Each shows a 24-hour trend line or meter and highlights briefly when live data changes
   it. Plus an observed temperature trend (24 hours to 30 days)
 - **Forecast**: daily summary table plus 3-hourly temperature, chance of precipitation and rain/snow amounts
@@ -73,7 +75,8 @@ Built to be hosted publicly: visitors browse, and only the admin manages what is
   it doesn't, and pauses in background tabs.
 - **API**: FastAPI with Pydantic models; serves the built frontend from the same origin.
 - **Scheduler**: collects current conditions, air quality and forecasts for every tracked location
-  on their own intervals, and refreshes history daily.
+  on their own intervals (the hourly forecast and rain nowcast from Open-Meteo every 15 minutes),
+  and refreshes history daily.
 - **Live updates**: the API watches for newly collected data and pushes it to open browsers over
   Server-Sent Events (`/api/events`), so pages update without reloading.
 - **Database**: SQLAlchemy models; PostgreSQL in Docker, SQLite for local development.
@@ -113,12 +116,32 @@ Set these in `.env` (see [`.env.example`](.env.example)):
 | `CURRENT_INTERVAL_MINUTES` | `5` | How often to collect current conditions |
 | `AIR_QUALITY_INTERVAL_MINUTES` | `30` | How often to collect air quality |
 | `FORECAST_INTERVAL_MINUTES` | `60` | How often to collect the 5-day forecast |
+| `HOURLY_INTERVAL_MINUTES` | `15` | How often to collect the hourly forecast and rain nowcast (Open-Meteo, no key) |
+| `ONE_CALL_ENABLED` | `false` | Collect government weather alerts (needs One Call API 3.0; see below) |
+| `ONE_CALL_API_KEY` | `WEATHER_API_KEY` | Key for One Call, if it differs from the main one |
+| `ALERTS_INTERVAL_MINUTES` | `15` | How often to check for alerts |
 | `APP_PORT` | `8000` | Host port for the web app |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `weather_*` | Database credentials |
 | `DATABASE_URL` | | Full SQLAlchemy URL; overrides the `POSTGRES_*` values |
 
 `config.yaml` holds tuning such as the OpenWeather request delay and how many years of history to
 backfill.
+
+### Weather alerts
+
+Alerts (warnings, watches and advisories from national weather services) come from
+OpenWeather's One Call API 3.0, a separate subscription from the free API the rest of the app
+uses. To turn them on:
+
+1. On [openweathermap.org](https://openweathermap.org/api/one-call-3), subscribe to
+   "One Call by Call". The first 1,000 calls a day are free; set a daily limit in your
+   account so you are never billed.
+2. Set `ONE_CALL_ENABLED=true` (and `ONE_CALL_API_KEY` if you use a different key).
+
+Each tracked location costs one call per `ALERTS_INTERVAL_MINUTES`: 5 locations every
+15 minutes is 480 calls a day. Alerts appear above the conditions on a location's page, with
+their full text, and as a chip on its overview card. If the subscription isn't active, the
+collection run reports it, and everything else keeps working.
 
 ### Hosting publicly
 
@@ -172,8 +195,10 @@ sets an HTTP-only, `SameSite=Strict` session cookie. Failed sign-ins are rate li
 
 ## Data sources
 
-- Current weather, forecasts, air quality and geocoding: [OpenWeather](https://openweathermap.org/)
-- Historical daily weather: [Open-Meteo](https://open-meteo.com/) (CC BY 4.0)
+- Current weather, forecasts, air quality, geocoding and (optionally) alerts:
+  [OpenWeather](https://openweathermap.org/)
+- Hourly forecast, UV, 15-minute rain nowcast and historical daily weather:
+  [Open-Meteo](https://open-meteo.com/) (CC BY 4.0)
 - Rain radar: [RainViewer](https://www.rainviewer.com/api.html) (free API: past two hours, zoom up
   to 7); map tiles: [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, under the
   [tile usage policy](https://operations.osmfoundation.org/policies/tiles/), which suits personal

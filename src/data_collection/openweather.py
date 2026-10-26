@@ -113,6 +113,21 @@ def parse_geocoding(payload: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+def parse_alerts(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Government weather alerts from a One Call 3.0 response (absent when there are none)."""
+    return [
+        {
+            "sender": (alert.get("sender_name") or "").strip()[:200] or None,
+            "event": (alert.get("event") or "Weather alert").strip()[:200],
+            "starts_at": _ts(alert.get("start")),
+            "ends_at": _ts(alert.get("end")),
+            "description": (alert.get("description") or "").strip() or None,
+            "tags": ",".join(alert.get("tags") or []) or None,
+        }
+        for alert in payload.get("alerts") or []
+    ]
+
+
 class OpenWeatherClient:
     def __init__(
         self,
@@ -128,13 +143,13 @@ class OpenWeatherClient:
         self.session = session or build_session()
         self.rate_limiter = rate_limiter or RateLimiter(self.settings.request_delay_seconds)
 
-    def _get(self, path: str, **params: Any) -> Any:
+    def _get(self, path: str, key: str | None = None, **params: Any) -> Any:
         self.rate_limiter.wait()
         url = f"{self.settings.openweather_url}/{path}"
         try:
             response = self.session.get(
                 url,
-                params={**params, "appid": self.settings.api_key},
+                params={**params, "appid": key or self.settings.api_key},
                 timeout=self.settings.timeout_seconds,
             )
         except requests.RequestException as exc:
@@ -142,6 +157,11 @@ class OpenWeatherClient:
             # and collection errors are shown on the dashboard.
             raise OpenWeatherError(f"Request to {path} failed: {type(exc).__name__}") from exc
 
+        if response.status_code == 401 and path.startswith("data/3.0"):
+            raise OpenWeatherError(
+                "One Call API 3.0 isn't enabled for this key (401). Subscribe to "
+                '"One Call by Call" on openweathermap.org, or set ONE_CALL_ENABLED=false.'
+            )
         if response.status_code == 401:
             raise OpenWeatherError("OpenWeather rejected the API key (401). Check WEATHER_API_KEY.")
         if not response.ok:
@@ -162,3 +182,14 @@ class OpenWeatherClient:
 
     def air_quality(self, lat: float, lon: float) -> dict[str, Any] | None:
         return parse_air_quality(self._get("data/2.5/air_pollution", lat=lat, lon=lon))
+
+    def alerts(self, lat: float, lon: float) -> list[dict[str, Any]]:
+        """Active weather alerts (One Call API 3.0); one call per location."""
+        payload = self._get(
+            "data/3.0/onecall",
+            key=self.settings.one_call_api_key,
+            lat=lat,
+            lon=lon,
+            exclude="current,minutely,hourly,daily",
+        )
+        return parse_alerts(payload)

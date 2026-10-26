@@ -3,8 +3,16 @@ import { useQuery } from '@tanstack/react-query'
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { useMemo } from 'react'
 
-import { currentQuery, forecastQuery, observationsQuery, overviewQuery } from '../api/queries'
+import {
+  alertsQuery,
+  currentQuery,
+  forecastQuery,
+  hourlyQuery,
+  observationsQuery,
+  overviewQuery,
+} from '../api/queries'
 import { temperatureChart, type TempRow } from '../charts/definitions'
+import { Alerts } from '../components/Alerts'
 import { ChartCard } from '../components/ChartCard'
 import { Conditions } from '../components/Conditions'
 import { Hero } from '../components/Hero'
@@ -12,7 +20,14 @@ import { NextHours } from '../components/NextHours'
 import { Segmented } from '../components/Segmented'
 import { ErrorNotice, Loading, Notice } from '../components/States'
 import { useLocation } from '../lib/useLocation'
-import { STALE_FORECAST_MS, STALE_READING_MS, isStale } from '../lib/insights'
+import {
+  STALE_FORECAST_MS,
+  STALE_HOURLY_MS,
+  STALE_NOWCAST_MS,
+  STALE_READING_MS,
+  isStale,
+} from '../lib/insights'
+import { hourlySlots, threeHourlySlots } from '../lib/slots'
 import { toLocationTime } from '../lib/time'
 import { OBSERVATION_WINDOWS } from '../lib/periods'
 import { useNow } from '../lib/useNow'
@@ -81,6 +96,14 @@ export function NowPage() {
   // A forecast issued days ago (collection stopped) is no forecast at all.
   const entries =
     forecast && !isStale(forecast.issued_at, nowMs, STALE_FORECAST_MS) ? forecast.entries : []
+  // Open-Meteo's hourly forecast refreshes every 15 minutes; after a few hours without
+  // an update it has stopped, and its nowcast with it.
+  const { data: hourly } = useQuery(hourlyQuery(location.id))
+  const { data: alerts = [] } = useQuery(alertsQuery(location.id))
+  const fresh = hourly && !isStale(hourly.issued_at, nowMs, STALE_HOURLY_MS)
+  const hours = fresh ? hourly.hours : []
+  const nowcast = fresh && !isStale(hourly.issued_at, nowMs, STALE_NOWCAST_MS) ? hourly.nowcast : []
+  const slots = hours.length ? hourlySlots(hours, nowMs) : threeHourlySlots(entries, nowMs)
   // Today's range, air quality and normal come from the shared overview.
   const { data: overview } = useQuery({
     ...overviewQuery(),
@@ -97,15 +120,23 @@ export function NowPage() {
 
   return (
     <div className="stack">
+      <Alerts alerts={alerts} offset={offset} nowMs={nowMs} />
       <Hero location={location} obs={obs} units={units} today={today} />
-      {entries.length ? (
-        <NextHours entries={entries} nowMs={nowMs} offset={offset} units={units} />
-      ) : null}
+      <NextHours
+        slots={slots}
+        title={hours.length ? 'Next 48 hours' : 'Next 24 hours'}
+        source={hours.length ? 'Hour by hour' : 'Every 3 hours'}
+        nowMs={nowMs}
+        offset={offset}
+        units={units}
+      />
       <Conditions
         locationId={location.id}
         obs={obs}
         recent={recent}
         forecast={entries}
+        hours={hours}
+        nowcast={nowcast}
         air={overview?.air_quality ?? null}
         today={today ?? null}
         normal={overview?.normal ?? null}

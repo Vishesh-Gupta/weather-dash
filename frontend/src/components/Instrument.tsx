@@ -53,6 +53,26 @@ export function Sparkline({ values }: { values: readonly (number | null | undefi
 }
 
 /** A thin bar for a 0–1 share, such as humidity or chance of rain. */
+/** Rain over the next two hours in 15-minute bars; decorative, the text beside it says it. */
+export function RainBars({ slots }: { slots: readonly { at: string; rate: number }[] }) {
+  // 4 mm/h is heavy rain; anything above fills the bar.
+  const height = (rate: number) => (rate <= 0 ? 0 : Math.max(0.12, Math.min(1, rate / 4)))
+  return (
+    <div className="rain-bars" aria-hidden="true">
+      <div className="rain-bars-plot">
+        {slots.map((s) => (
+          <span key={s.at} style={{ height: `${height(s.rate) * 100}%` }} />
+        ))}
+      </div>
+      <div className="rain-bars-axis">
+        <span>Now</span>
+        <span>+1 h</span>
+        <span>+2 h</span>
+      </div>
+    </div>
+  )
+}
+
 export function Meter({ value, label }: { value: number; label: string }) {
   const clamped = Math.min(1, Math.max(0, value))
   return (

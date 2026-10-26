@@ -4,7 +4,7 @@ import logging
 from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from src.data_collection.open_meteo import OpenMeteoClient
@@ -15,7 +15,10 @@ from src.database.models import (
     CollectionRun,
     DailyHistory,
     ForecastEntry,
+    HourlyForecast,
     Location,
+    PrecipitationNowcast,
+    WeatherAlert,
     WeatherObservation,
 )
 from src.database.session import session_scope
@@ -36,9 +39,14 @@ class Kind(StrEnum):
     CURRENT = "current"
     FORECAST = "forecast"
     AIR_QUALITY = "air_quality"
+    # Hourly forecast and rain nowcast, from Open-Meteo rather than OpenWeather.
+    HOURLY = "hourly"
+    # Weather alerts, from OpenWeather's One Call API 3.0 (only when enabled).
+    ALERTS = "alerts"
 
 
 ALL_KINDS = frozenset(Kind)
+OPENWEATHER_KINDS = frozenset({Kind.CURRENT, Kind.FORECAST, Kind.AIR_QUALITY})
 
 
 def collect_current(
@@ -81,6 +89,35 @@ def collect_air_quality(
     )
 
 
+def collect_hourly(
+    session: Session, client: OpenMeteoClient, location: Location, issued_at: datetime
+) -> int:
+    """Replace the location's hourly forecast and nowcast with the latest issue."""
+    hours, quarters = client.forecast(location.lat, location.lon)
+    for model, rows in ((HourlyForecast, hours), (PrecipitationNowcast, quarters)):
+        session.execute(delete(model).where(model.location_id == location.id))
+        if rows:
+            session.execute(
+                model.__table__.insert(),
+                [{**row, "location_id": location.id, "issued_at": issued_at} for row in rows],
+            )
+    return len(hours)
+
+
+def collect_alerts(
+    session: Session, client: OpenWeatherClient, location: Location, collected_at: datetime
+) -> int:
+    """Replace the location's alerts with those currently in force."""
+    alerts = client.alerts(location.lat, location.lon)
+    session.execute(delete(WeatherAlert).where(WeatherAlert.location_id == location.id))
+    if alerts:
+        session.execute(
+            WeatherAlert.__table__.insert(),
+            [{**a, "location_id": location.id, "collected_at": collected_at} for a in alerts],
+        )
+    return len(alerts)
+
+
 COLLECTORS = {
     Kind.CURRENT: collect_current,
     Kind.FORECAST: collect_forecast,
@@ -99,7 +136,7 @@ def collect_current_data(
     return {
         kind.value: COLLECTORS[kind](session, client, location, issued_at)
         for kind in Kind
-        if kind in kinds
+        if kind in kinds and kind in OPENWEATHER_KINDS
     }
 
 
@@ -144,7 +181,7 @@ def sync_history(
 
 def run_collection(
     weather_client: OpenWeatherClient | None = None,
-    history_client: OpenMeteoClient | None = None,
+    open_meteo_client: OpenMeteoClient | None = None,
     now: datetime | None = None,
     location_ids: list[int] | None = None,
     kinds: frozenset[Kind] = ALL_KINDS,
@@ -155,13 +192,17 @@ def run_collection(
     `kinds` to specific data. History is synced whenever it is due, in any run.
 
     Each location is committed separately so one failure does not discard the others,
-    and its history separately again: an Open-Meteo outage must not throw away the
-    OpenWeather readings it was collected alongside.
+    and its Open-Meteo data (hourly forecast, history) separately again: an outage of
+    one service must not throw away what the other returned.
     """
     settings = get_settings()
     now = now or datetime.now(UTC)
-    weather_client = weather_client or OpenWeatherClient(settings)
-    history_client = history_client or OpenMeteoClient(settings)
+    if not settings.one_call_enabled:
+        kinds = kinds - {Kind.ALERTS}
+    # Open-Meteo needs no key, so runs for its data alone work without one.
+    if weather_client is None and kinds & (OPENWEATHER_KINDS | {Kind.ALERTS}):
+        weather_client = OpenWeatherClient(settings)
+    open_meteo_client = open_meteo_client or OpenMeteoClient(settings)
 
     with session_scope() as session:
         run = CollectionRun(started_at=now, kinds=",".join(k.value for k in Kind if k in kinds))
@@ -180,21 +221,49 @@ def run_collection(
     errors: list[str] = []
     processed = 0
     for location_id in location_ids:
-        try:
-            with session_scope() as session:
-                location = session.get(Location, location_id)
-                counts = collect_current_data(session, weather_client, location, now, kinds)
-                logger.info("Collected %s: %s", location.display_name, counts)
-            processed += 1
-        except Exception as exc:
-            logger.exception("Collection failed for location %s", location_id)
-            errors.append(f"location {location_id}: {exc}")
+        # A location counts as processed when any of its data was stored.
+        attempted = failed = 0
+        if kinds & OPENWEATHER_KINDS:
+            attempted += 1
+            try:
+                with session_scope() as session:
+                    location = session.get(Location, location_id)
+                    counts = collect_current_data(session, weather_client, location, now, kinds)
+                    logger.info("Collected %s: %s", location.display_name, counts)
+            except Exception as exc:
+                failed += 1
+                logger.exception("Collection failed for location %s", location_id)
+                errors.append(f"location {location_id}: {exc}")
+        if Kind.HOURLY in kinds:
+            attempted += 1
+            try:
+                with session_scope() as session:
+                    location = session.get(Location, location_id)
+                    hours = collect_hourly(session, open_meteo_client, location, now)
+                    logger.info("Hourly forecast for %s: %s hours", location.display_name, hours)
+            except Exception as exc:
+                failed += 1
+                logger.exception("Hourly forecast failed for location %s", location_id)
+                errors.append(f"location {location_id} hourly: {exc}")
+        if Kind.ALERTS in kinds:
+            # A separate subscription, so its failures (say, not yet enabled) stay its own.
+            attempted += 1
+            try:
+                with session_scope() as session:
+                    location = session.get(Location, location_id)
+                    alerts = collect_alerts(session, weather_client, location, now)
+                    logger.info("Alerts for %s: %s", location.display_name, alerts)
+            except Exception as exc:
+                failed += 1
+                logger.exception("Alerts failed for location %s", location_id)
+                errors.append(f"location {location_id} alerts: {exc}")
+        processed += failed < attempted or attempted == 0
         try:
             with session_scope() as session:
                 location = session.get(Location, location_id)
                 if history_due(location, now):
                     days = sync_history(
-                        session, history_client, location, now, settings.backfill_years
+                        session, open_meteo_client, location, now, settings.backfill_years
                     )
                     logger.info("History for %s: %s days", location.display_name, days)
         except Exception as exc:

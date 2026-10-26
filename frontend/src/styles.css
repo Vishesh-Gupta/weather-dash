@@ -729,6 +729,11 @@ select option {
   gap: 16px;
 }
 
+/* Let wide content (the hourly strip) scroll inside its card instead of widening the page. */
+.stack > * {
+  min-width: 0;
+}
+
 .grid-2 {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
@@ -1015,7 +1020,8 @@ table.data tbody tr:last-child td {
 
 .instruments {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
+  /* Nine instruments: three rows of three. */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -1071,6 +1077,29 @@ table.data tbody tr:last-child td {
 
 .instrument-detail a {
   color: var(--accent);
+}
+
+.rain-bars-plot {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 26px;
+  border-bottom: 1px solid var(--border);
+}
+
+.rain-bars-plot span {
+  flex: 1;
+  min-height: 0;
+  border-radius: 2px 2px 0 0;
+  background: var(--accent);
+}
+
+.rain-bars-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 3px;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
 }
 
 .instrument-visual {
@@ -1240,14 +1269,81 @@ table.data tbody tr:last-child td {
   padding: 14px 18px 12px;
 }
 
+.next-hours-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.next-hours-source {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.next-hours-scroll {
+  /* Contains the visually hidden labels, which would otherwise widen the page. */
+  position: relative;
+  margin-top: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-radius: 8px;
+}
+
+.next-hours-scroll:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.next-hours-scroll.is-hourly {
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  /* Fade the edge to show there is more to scroll. */
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+
 .next-hours ol {
   display: grid;
   grid-template-columns: repeat(8, minmax(64px, 1fr));
-  margin: 8px 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
-  overflow-x: auto;
-  scrollbar-width: none;
+}
+
+.next-hours-scroll.is-hourly ol {
+  grid-template-columns: repeat(var(--columns), 60px);
+  width: max-content;
+}
+
+.next-hours-scroll.is-hourly li {
+  scroll-snap-align: start;
+}
+
+.next-hours li.is-new-day {
+  border-left-color: var(--text-muted);
+}
+
+.next-hours li.is-new-day time {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.next-hours-curve {
+  display: block;
+  margin-bottom: -4px;
+}
+
+.next-hours-curve path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  opacity: 0.8;
+}
+
+.next-hours-curve circle {
+  fill: var(--accent);
 }
 
 .next-hours li {
@@ -1326,6 +1422,11 @@ table.data tbody tr:last-child td {
   .instruments {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
+  }
+
+  /* An odd one out takes the full last row. */
+  .instruments > .instrument:last-of-type:nth-of-type(odd) {
+    grid-column: 1 / -1;
   }
 
   .instrument {
@@ -1514,6 +1615,97 @@ table.data tbody tr:last-child td {
     flex-basis: 100%;
     min-width: 0;
   }
+}
+
+/* --- Weather alerts ---------------------------------------------------------------------- */
+
+.alerts {
+  display: grid;
+  gap: 8px;
+}
+
+.alert {
+  --alert: var(--status-warning);
+  border: 1px solid color-mix(in srgb, var(--alert) 55%, transparent);
+  border-left: 4px solid var(--alert);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--alert) 16%, rgba(10, 14, 22, 0.78));
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+
+.alert-serious {
+  --alert: var(--status-serious);
+}
+
+.alert-critical {
+  --alert: var(--status-critical);
+}
+
+.alert summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.alert summary::-webkit-details-marker {
+  display: none;
+}
+
+.alert summary::after {
+  content: '';
+  margin-left: auto;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--text-secondary);
+  border-bottom: 2px solid var(--text-secondary);
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+}
+
+.alert[open] summary::after {
+  transform: rotate(-135deg);
+}
+
+.alert summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: 12px;
+}
+
+.alert-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--alert);
+  color: #10131a;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.alert-title strong {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.alert-when {
+  color: var(--text-secondary);
+}
+
+.alert-body {
+  padding: 0 14px 12px 46px;
+  font-size: 0.9375rem;
+}
+
+.alert-body p {
+  margin: 0 0 8px;
+  white-space: pre-line;
 }
 
 /* --- Offline ---------------------------------------------------------------------------- */

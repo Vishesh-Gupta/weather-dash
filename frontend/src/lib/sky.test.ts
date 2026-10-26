@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { isDaytime, skyFor } from './sky'
+import { codeLabel, isDaytime, skyFor, skyForCode } from './sky'
 
 const base = {
   observed_at: '2026-10-21T16:00:00Z',
@@ -35,5 +35,22 @@ describe('sky', () => {
         weather_icon: null,
       }),
     ).toBe(false)
+  })
+})
+
+describe('WMO weather codes', () => {
+  it('map to skies and labels', () => {
+    expect(skyForCode(0, false)).toBe('clear-night')
+    expect(skyForCode(2, true)).toBe('partly-day')
+    expect(skyForCode(3, false)).toBe('clouds-night')
+    expect(skyForCode(45, true)).toBe('mist')
+    expect(skyForCode(53, true)).toBe('drizzle')
+    expect(skyForCode(81, true)).toBe('rain')
+    expect(skyForCode(86, true)).toBe('snow')
+    expect(skyForCode(95, true)).toBe('thunder')
+    expect(codeLabel(63)).toBe('Rain')
+    expect(codeLabel(66)).toBe('Freezing rain')
+    expect(codeLabel(96)).toBe('Thunderstorm')
+    expect(codeLabel(null)).toBe('Unknown')
   })
 })

@@ -77,6 +77,15 @@ class Location(Base):
     daily_history: Mapped[list["DailyHistory"]] = relationship(
         back_populates="location", cascade="all, delete-orphan", passive_deletes=True
     )
+    hourly_forecast: Mapped[list["HourlyForecast"]] = relationship(
+        back_populates="location", cascade="all, delete-orphan", passive_deletes=True
+    )
+    nowcast: Mapped[list["PrecipitationNowcast"]] = relationship(
+        back_populates="location", cascade="all, delete-orphan", passive_deletes=True
+    )
+    alerts: Mapped[list["WeatherAlert"]] = relationship(
+        back_populates="location", cascade="all, delete-orphan", passive_deletes=True
+    )
 
     @property
     def display_name(self) -> str:
@@ -202,6 +211,89 @@ class DailyHistory(Base):
     sunshine_duration: Mapped[float | None]
 
     location: Mapped[Location] = relationship(back_populates="daily_history")
+
+
+class HourlyForecast(Base):
+    """One hour of Open-Meteo's forecast for the next 48 hours.
+
+    Only the latest issue is kept: each collection replaces the location's rows.
+    """
+
+    __tablename__ = "hourly_forecasts"
+    __table_args__ = (
+        UniqueConstraint("location_id", "forecast_for", name="uq_hourly_location_hour"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    location_id: Mapped[int] = mapped_column(ForeignKey("locations.id", ondelete="CASCADE"))
+    issued_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    forecast_for: Mapped[datetime] = mapped_column(UTCDateTime, index=True)
+
+    temp: Mapped[float]
+    feels_like: Mapped[float | None]
+    humidity: Mapped[float | None]
+    # Chance of precipitation 0–1, like OpenWeather's `pop`.
+    pop: Mapped[float | None]
+    # Precipitation in the hour (mm); rain includes showers; snowfall in cm.
+    precipitation: Mapped[float | None]
+    rain: Mapped[float | None]
+    snowfall: Mapped[float | None]
+    # WMO weather interpretation code.
+    weather_code: Mapped[int | None] = mapped_column(Integer)
+    clouds: Mapped[float | None]
+    wind_speed: Mapped[float | None]
+    wind_deg: Mapped[float | None]
+    wind_gust: Mapped[float | None]
+    uv_index: Mapped[float | None]
+    is_day: Mapped[bool | None]
+
+    location: Mapped[Location] = relationship(back_populates="hourly_forecast")
+
+
+class PrecipitationNowcast(Base):
+    """Precipitation over the next two hours in 15-minute steps (latest issue only)."""
+
+    __tablename__ = "precipitation_nowcasts"
+    __table_args__ = (
+        UniqueConstraint("location_id", "forecast_for", name="uq_nowcast_location_slot"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    location_id: Mapped[int] = mapped_column(ForeignKey("locations.id", ondelete="CASCADE"))
+    issued_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    # Start of the 15-minute slot.
+    forecast_for: Mapped[datetime] = mapped_column(UTCDateTime, index=True)
+    # mm in the 15 minutes; snowfall in cm.
+    precipitation: Mapped[float | None]
+    snowfall: Mapped[float | None]
+
+    location: Mapped[Location] = relationship(back_populates="nowcast")
+
+
+class WeatherAlert(Base):
+    """A government weather alert in force for a location (OpenWeather One Call 3.0).
+
+    Each collection replaces the location's alerts with the ones currently issued.
+    """
+
+    __tablename__ = "weather_alerts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    location_id: Mapped[int] = mapped_column(
+        ForeignKey("locations.id", ondelete="CASCADE"), index=True
+    )
+    collected_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    # The issuing agency, e.g. "NWS Philadelphia - Mount Holly".
+    sender: Mapped[str | None] = mapped_column(String(200))
+    # The alert's name, e.g. "Severe Thunderstorm Warning".
+    event: Mapped[str] = mapped_column(String(200))
+    starts_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    ends_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    description: Mapped[str | None] = mapped_column(Text)
+    # Comma-separated categories, e.g. "Wind,Flood".
+    tags: Mapped[str | None] = mapped_column(String(200))
+
+    location: Mapped[Location] = relationship(back_populates="alerts")
 
 
 class CollectionRun(Base):

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { mockApi, renderApp } from './test/app'
-import { adminSession, overviewItem, toronto } from './test/fixtures'
+import { adminSession, overviewItem, toronto, windWarning } from './test/fixtures'
 
 beforeEach(() => {
   window.localStorage.clear()
@@ -87,9 +87,31 @@ describe('visitor views', () => {
     expect(versus).toHaveTextContent('Warmer than usual today')
     expect(versus).toHaveTextContent('record 24° in 2019')
 
-    const hours = await region('Next 24 hours')
+    // Hour by hour from Open-Meteo: 48 hours starting now, with the next day marked.
+    const hours = await region('Next 48 hours')
+    const items = within(hours).getAllByRole('listitem')
+    expect(items).toHaveLength(48)
+    expect(items[0]).toHaveTextContent(/^Now/)
+    expect(items[14]).toHaveTextContent(/^Thu/)
+    expect(items[2]).toHaveTextContent('70%')
+
+    // 10:30 local: UV 2.6 now, peaking at noon.
+    const uv = await region('UV index')
+    expect(uv).toHaveTextContent('3Moderate · Sunscreen at middayPeaks at 3 around 12:00')
+
+    // The nowcast has rain from 11:45 local, 75 minutes away.
+    expect(await region('Precipitation')).toHaveTextContent('75minRain starting around 11:45')
+  })
+
+  it('falls back to the 3-hourly forecast without an hourly one', async () => {
+    mockApi({ 'GET /api/locations/1/hourly': { issued_at: null, hours: [], nowcast: [] } })
+    renderApp('/locations/1')
+    const hours = await screen.findByRole('region', { name: 'Next 24 hours' })
     expect(within(hours).getAllByRole('listitem')).toHaveLength(8)
     expect(within(hours).getByText('80%')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'UV index' })).toHaveTextContent(
+      'Appears with the hourly forecast',
+    )
   })
 
   it('says plainly when readings have stopped updating', async () => {
@@ -107,7 +129,7 @@ describe('visitor views', () => {
     )
     expect(hero).toHaveClass('is-stale')
     // The old forecast is no longer shown as the next 24 hours.
-    expect(screen.queryByRole('region', { name: 'Next 24 hours' })).toBeNull()
+    expect(screen.queryByRole('region', { name: /^Next \d+ hours$/ })).toBeNull()
     expect(screen.getByRole('region', { name: 'Precipitation' })).toHaveTextContent(
       'No forecast for the next few hours',
     )
@@ -151,6 +173,28 @@ describe('visitor views', () => {
     expect(screen.getByRole('button', { name: 'Pause' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('region', { name: /Radar map around Toronto/ })).toBeInTheDocument()
     expect(screen.getByText('Hail')).toBeInTheDocument()
+  })
+
+  it('leads with weather alerts, each opening to its full text', async () => {
+    mockApi({ 'GET /api/locations/1/alerts': [windWarning] })
+    renderApp('/locations/1')
+    const alerts = await screen.findByRole('region', { name: 'Weather alerts' })
+    // Ends 23:00 local, later the same day.
+    const summary = within(alerts).getByText('Wind Warning').closest('summary')!
+    expect(summary).toHaveTextContent('Wind Warning · until 23:00')
+    expect(within(alerts).getByText(/Gusts of 90 km\/h/)).not.toBeVisible()
+    await userEvent.setup().click(summary)
+    expect(within(alerts).getByText(/Gusts of 90 km\/h/)).toBeVisible()
+    expect(
+      within(alerts).getByText('Issued by Environment and Climate Change Canada'),
+    ).toBeVisible()
+  })
+
+  it('flags alerts on the overview', async () => {
+    mockApi({ 'GET /api/overview': [{ ...overviewItem(), alerts: [windWarning] }] })
+    renderApp('/')
+    const card = await screen.findByRole('link', { name: /Toronto.*Wind Warning/s })
+    expect(within(card).getByText('Wind Warning')).toHaveClass('chip-serious')
   })
 
   it('says when it is offline', async () => {

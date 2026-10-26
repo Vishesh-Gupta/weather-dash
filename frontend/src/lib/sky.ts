@@ -61,3 +61,47 @@ export function skyFor(obs: Conditions): Sky {
   }
   return day ? 'clear-day' : 'clear-night'
 }
+
+/**
+ * Sky for a WMO weather code, as Open-Meteo reports them.
+ * https://open-meteo.com/en/docs#weather_variable_documentation
+ */
+export function skyForCode(
+  code: number | null | undefined,
+  isDay: boolean | null | undefined,
+): Sky {
+  const day = isDay ?? true
+  if (code == null || code === 0) return day ? 'clear-day' : 'clear-night'
+  if (code <= 2) return day ? 'partly-day' : 'partly-night'
+  if (code === 3) return day ? 'clouds-day' : 'clouds-night'
+  if (code === 45 || code === 48) return 'mist'
+  if (code >= 51 && code <= 57) return 'drizzle'
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return 'snow'
+  if (code >= 95) return 'thunder'
+  return 'rain'
+}
+
+const CODE_LABELS: [number, string][] = [
+  [0, 'Clear'],
+  [1, 'Mainly clear'],
+  [2, 'Partly cloudy'],
+  [3, 'Overcast'],
+  [48, 'Fog'],
+  [57, 'Drizzle'],
+  [61, 'Light rain'],
+  [63, 'Rain'],
+  [65, 'Heavy rain'],
+  [67, 'Freezing rain'],
+  [77, 'Snow'],
+  [80, 'Light showers'],
+  [81, 'Showers'],
+  [82, 'Heavy showers'],
+  [86, 'Snow showers'],
+  [99, 'Thunderstorm'],
+]
+
+/** A short description of a WMO weather code. */
+export function codeLabel(code: number | null | undefined): string {
+  if (code == null) return 'Unknown'
+  return CODE_LABELS.find(([max]) => code <= max)?.[1] ?? 'Unknown'
+}

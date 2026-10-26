@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 
-import type { Location, Observation } from '../api/client'
+import type { Alert, Location, Observation } from '../api/client'
+import { alertLevel, sortAlerts } from '../lib/alerts'
 import { STALE_READING_MS, isStale, versusNormal } from '../lib/insights'
 import { sceneFor } from '../lib/scene'
 import { skyStyle } from '../lib/skyStyle'
@@ -91,9 +92,18 @@ interface CardProps {
   aqi?: { label: string; role: string | null } | null
   /** The climate normal for today, to say whether today runs warm or cold. */
   normalHigh?: number | null
+  alerts?: readonly Alert[]
 }
 
-export function LocationCard({ location, obs, units, today, aqi, normalHigh }: CardProps) {
+export function LocationCard({
+  location,
+  obs,
+  units,
+  today,
+  aqi,
+  normalHigh,
+  alerts = [],
+}: CardProps) {
   const now = useNow(60_000)
   const stale = obs ? isStale(obs.observed_at, now, STALE_READING_MS) : false
   const versus = versusNormal(today?.high, normalHigh)
@@ -148,6 +158,12 @@ export function LocationCard({ location, obs, units, today, aqi, normalHigh }: C
             {today && !stale ? (
               <span>
                 H {Math.round(units.temp(today.high))}° · L {Math.round(units.temp(today.low))}°
+              </span>
+            ) : null}
+            {alerts.length ? (
+              <span className={`chip chip-${alertLevel(sortAlerts(alerts)[0]!.event)}`}>
+                {sortAlerts(alerts)[0]!.event}
+                {alerts.length > 1 ? ` +${alerts.length - 1}` : ''}
               </span>
             ) : null}
             {stale ? <span className="chip chip-warning">Not updating</span> : null}

@@ -133,7 +133,7 @@ export function Layout() {
       </main>
       <footer className="footer">
         <CollectionStatus /> · Current weather, forecasts and air quality from{' '}
-        <a href="https://openweathermap.org/">OpenWeather</a>. Historical data from{' '}
+        <a href="https://openweathermap.org/">OpenWeather</a>. Hourly forecast and history from{' '}
         <a href="https://open-meteo.com/">Open-Meteo</a> (CC BY 4.0).
       </footer>
     </div>
