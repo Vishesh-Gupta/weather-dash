@@ -131,6 +131,28 @@ describe('visitor views', () => {
     expect(within(hero).queryByText(/Not updating/)).toBeNull()
   })
 
+  it('shows the rain radar with a time scrubber', async () => {
+    // Frames every 10 minutes up to 14:20 UTC (10:20 in Toronto); now is 14:30.
+    const past = Array.from({ length: 13 }, (_, i) => ({
+      time: Date.UTC(2026, 9, 21, 12, 20) / 1000 + i * 600,
+      path: `/v2/radar/frame${i}`,
+    }))
+    mockApi({
+      'GET /public/weather-maps.json': {
+        host: 'https://tilecache.rainviewer.com',
+        radar: { past },
+      },
+    })
+    renderApp('/locations/1/radar')
+    const slider = await screen.findByRole('slider', { name: 'Radar time' })
+    expect(slider).toHaveAttribute('aria-valuetext', '10:20 · latest, 10 min ago')
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Play' }))
+    expect(screen.getByRole('button', { name: 'Pause' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('region', { name: /Radar map around Toronto/ })).toBeInTheDocument()
+    expect(screen.getByText('Hail')).toBeInTheDocument()
+  })
+
   it('remembers the unit preference', async () => {
     window.localStorage.setItem('units', 'imperial')
     mockApi()

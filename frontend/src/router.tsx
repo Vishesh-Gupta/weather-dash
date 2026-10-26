@@ -83,6 +83,12 @@ export const airQualityRoute = createRoute({
   component: lazyRouteComponent(() => import('./pages/AirQuality'), 'AirQualityPage'),
 })
 
+export const radarRoute = createRoute({
+  getParentRoute: () => locationRoute,
+  path: 'radar',
+  component: lazyRouteComponent(() => import('./pages/Radar'), 'RadarPage'),
+})
+
 export const historyRoute = createRoute({
   getParentRoute: () => locationRoute,
   path: 'history',
@@ -124,7 +130,7 @@ export const signInRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
-  locationRoute.addChildren([nowRoute, forecastRoute, airQualityRoute, historyRoute]),
+  locationRoute.addChildren([nowRoute, forecastRoute, radarRoute, airQualityRoute, historyRoute]),
   manageRoute,
   signInRoute,
 ])

@@ -17,7 +17,9 @@ SECURITY_HEADERS = {
     "X-Frame-Options": "DENY",
     "Content-Security-Policy": (
         "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-        "img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; "
+        # Radar frames and map tiles for the radar page (RainViewer, OpenStreetMap).
+        "img-src 'self' data: https://tilecache.rainviewer.com https://tile.openstreetmap.org; "
+        "connect-src 'self' https://api.rainviewer.com; font-src 'self'; object-src 'none'; "
         "base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
     ),
 }
