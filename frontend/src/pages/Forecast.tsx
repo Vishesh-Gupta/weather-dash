@@ -1,6 +1,5 @@
 import { Chart } from '@tanstack/charts/react'
 import { useQuery } from '@tanstack/react-query'
-import { getRouteApi } from '@tanstack/react-router'
 import { useMemo } from 'react'
 
 import { forecastQuery } from '../api/queries'
@@ -15,12 +14,12 @@ import { ChartCard } from '../components/ChartCard'
 import { DataTable } from '../components/DataTable'
 import { columnHelper } from '../components/table'
 import { ErrorNotice, Loading, Notice } from '../components/States'
+import { useLocation } from '../lib/useLocation'
 import { formatDayTime, formatWeekday, toLocationTime } from '../lib/time'
 import { forecastByDay, type ForecastDay } from '../lib/transform'
 import type { Units } from '../lib/units'
 import { usePreferences } from '../preferences-context'
 
-const locationRoute = getRouteApi('/locations/$locationId')
 const helper = columnHelper<ForecastDay>()
 
 function summaryColumns(units: Units) {
@@ -52,7 +51,7 @@ function summaryColumns(units: Units) {
 }
 
 export function ForecastPage() {
-  const location = locationRoute.useLoaderData()
+  const location = useLocation()
   const { units, palette } = usePreferences()
   const { data, isPending, error, refetch } = useQuery(forecastQuery(location.id))
   const offset = location.utc_offset_seconds

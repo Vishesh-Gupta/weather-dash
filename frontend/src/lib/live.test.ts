@@ -32,9 +32,18 @@ describe('invalidateForKinds', () => {
     invalidateForKinds(client, ['current'])
     expect(stale(client)).toEqual([
       ['overview'],
+      ['locations', 1],
       ['locations', 1, 'current'],
       ['locations', 1, 'observations', 7],
+      ['locations', 1, 'history'],
     ])
+  })
+
+  it('leaves the location itself alone when current conditions are unchanged', () => {
+    const client = clientWithQueries()
+    invalidateForKinds(client, ['forecast'])
+    expect(stale(client)).not.toContainEqual(['locations', 1])
+    expect(stale(client)).not.toContainEqual(['locations'])
   })
 
   it('refreshes air quality for every location', () => {
@@ -93,6 +102,50 @@ describe('connectLive', () => {
 
     disconnect()
     expect(source.closed).toBe(true)
+  })
+
+  it('reconnects with backoff after the stream gives up', () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('EventSource', FakeEventSource)
+    const disconnect = connectLive(new QueryClient(), () => {})
+    const first = FakeEventSource.instances[0]!
+    first.readyState = FakeEventSource.CLOSED
+    first.emit('error')
+    vi.advanceTimersByTime(1_999)
+    expect(FakeEventSource.instances).toHaveLength(1)
+    vi.advanceTimersByTime(1)
+    expect(FakeEventSource.instances).toHaveLength(2)
+    expect(first.closed).toBe(true)
+
+    // A transient error (EventSource retrying itself) doesn't start a second stream.
+    FakeEventSource.instances[1]!.emit('error')
+    vi.advanceTimersByTime(60_000)
+    expect(FakeEventSource.instances).toHaveLength(2)
+    disconnect()
+    vi.useRealTimers()
+  })
+
+  it('lets go of the stream while the tab is hidden', () => {
+    vi.stubGlobal('EventSource', FakeEventSource)
+    const client = clientWithQueries()
+    const disconnect = connectLive(client, () => {})
+    const first = FakeEventSource.instances[0]!
+    first.emit('ready')
+
+    const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(true)
+    document.dispatchEvent(new Event('visibilitychange'))
+    expect(first.closed).toBe(true)
+
+    hidden.mockReturnValue(false)
+    document.dispatchEvent(new Event('visibilitychange'))
+    const second = FakeEventSource.instances[1]!
+    expect(second.closed).toBe(false)
+    second.emit('ready')
+    expect(stale(client)).toContainEqual(['locations', 1, 'forecast'])
+
+    hidden.mockRestore()
+    disconnect()
+    expect(second.closed).toBe(true)
   })
 
   it('refreshes everything after reconnecting', () => {
