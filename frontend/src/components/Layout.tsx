@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 
 import { api } from '../api/client'
 import { latestRunQuery, queryKeys, sessionQuery } from '../api/queries'
+import { useInstallPrompt, useOnline } from '../lib/app'
 import { sceneFor } from '../lib/scene'
 import { skyStyle } from '../lib/skyStyle'
 import { useActiveLocation } from '../lib/useActiveLocation'
@@ -46,6 +47,27 @@ function SessionControls() {
         </button>
       ) : null}
     </>
+  )
+}
+
+function InstallButton() {
+  const install = useInstallPrompt()
+  if (!install) return null
+  return (
+    <button type="button" className="button" onClick={() => void install()}>
+      Install app
+    </button>
+  )
+}
+
+function OfflineNotice() {
+  const online = useOnline()
+  if (online) return null
+  return (
+    <p className="offline-notice" role="status">
+      <strong>You&apos;re offline.</strong> Showing what this device saved last; it updates when
+      you&apos;re back online.
+    </p>
   )
 }
 
@@ -100,11 +122,13 @@ export function Layout() {
               { value: 'imperial', label: '°F' },
             ]}
           />
+          <InstallButton />
           <SessionControls />
         </nav>
       </header>
       <LocationSwitcher items={items} activeId={locationId} />
       <main className="main" id="main">
+        <OfflineNotice />
         <Outlet />
       </main>
       <footer className="footer">

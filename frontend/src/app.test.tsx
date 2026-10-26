@@ -175,6 +175,18 @@ describe('visitor views', () => {
     expect(within(card).getByText('Wind Warning')).toHaveClass('chip-serious')
   })
 
+  it('says when it is offline', async () => {
+    const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    mockApi()
+    renderApp('/')
+    expect(await screen.findByText(/Showing what this device saved last/)).toBeInTheDocument()
+    expect(screen.getByText('Offline')).toBeInTheDocument()
+    online.mockReturnValue(true)
+    window.dispatchEvent(new Event('online'))
+    await waitFor(() => expect(screen.queryByText(/You're offline/)).toBeNull())
+    online.mockRestore()
+  })
+
   it('remembers the unit preference', async () => {
     window.localStorage.setItem('units', 'imperial')
     mockApi()

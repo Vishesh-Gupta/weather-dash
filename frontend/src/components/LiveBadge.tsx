@@ -1,3 +1,4 @@
+import { useOnline } from '../lib/app'
 import { useLiveStatus } from '../live-context'
 
 const LABELS = {
@@ -7,7 +8,10 @@ const LABELS = {
 } as const
 
 export function LiveBadge() {
-  const status = useLiveStatus()
+  // With no network at all, say so rather than "connecting" indefinitely.
+  const online = useOnline()
+  const live = useLiveStatus()
+  const status = online ? live : 'offline'
   const { text, title } = LABELS[status]
   return (
     <span className={`live-badge live-${status}`} title={title} role="status" aria-live="polite">
