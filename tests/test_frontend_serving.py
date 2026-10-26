@@ -12,6 +12,8 @@ def dist(tmp_path):
     (root / "index.html").write_text("<!doctype html><div id=root></div>")
     (root / "assets" / "index-abc123.js").write_text("console.log('app')")
     (root / "favicon.svg").write_text("<svg/>")
+    (root / "sw.js").write_text("self.addEventListener('fetch', () => {})")
+    (root / "manifest.webmanifest").write_text('{"name": "Weather"}')
     (tmp_path / "secret.txt").write_text("outside dist")
     return root
 
@@ -40,6 +42,15 @@ def test_hashed_assets_are_cached_long(client):
     assert response.status_code == 200
     assert "immutable" in response.headers["cache-control"]
     assert client.get("/favicon.svg").headers["cache-control"] == "public, max-age=3600"
+
+
+def test_service_worker_and_manifest_are_always_revalidated(client):
+    worker = client.get("/sw.js")
+    assert worker.headers["cache-control"] == "no-cache"
+    assert worker.headers["content-type"].startswith("text/javascript")
+    manifest = client.get("/manifest.webmanifest")
+    assert manifest.headers["cache-control"] == "no-cache"
+    assert manifest.headers["content-type"].startswith("application/manifest+json")
 
 
 def test_api_routes_are_not_shadowed(client):

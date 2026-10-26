@@ -54,6 +54,10 @@ class SecurityHeadersMiddleware:
         await self.app(scope, receive, send_with_headers)
 
 
+# Checked on every load so updates reach installed apps promptly.
+UNCACHED_FILES = {"sw.js", "manifest.webmanifest"}
+
+
 def mount_frontend(app: FastAPI, dist: Path) -> bool:
     """Serve `dist` if it contains a build. Returns whether the frontend was mounted."""
     index = dist / "index.html"
@@ -68,11 +72,13 @@ def mount_frontend(app: FastAPI, dist: Path) -> bool:
         candidate = (root / path).resolve()
         if path and candidate.is_file() and candidate.is_relative_to(root):
             immutable = candidate.parent == root / "assets"
-            headers = {
-                "Cache-Control": "public, max-age=31536000, immutable"
-                if immutable
-                else "public, max-age=3600"
-            }
+            if immutable:
+                cache = "public, max-age=31536000, immutable"
+            elif path in UNCACHED_FILES:
+                cache = "no-cache"
+            else:
+                cache = "public, max-age=3600"
+            headers = {"Cache-Control": cache}
             return FileResponse(candidate, headers=headers)
         return FileResponse(index, headers={"Cache-Control": "no-cache"})
 

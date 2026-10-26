@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client'
 
 import { ApiError } from './api/client'
 import { queryKeys } from './api/queries'
+import { registerServiceWorker } from './lib/app'
 import { LiveProvider } from './LiveProvider'
 import { PreferencesProvider } from './preferences'
 import { createAppRouter } from './router'
@@ -43,3 +44,5 @@ createRoot(document.getElementById('root')!).render(
     </QueryClientProvider>
   </StrictMode>,
 )
+
+registerServiceWorker()
