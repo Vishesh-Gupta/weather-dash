@@ -38,6 +38,7 @@ def intervals(settings: Settings) -> dict[Kind, int]:
         Kind.CURRENT: settings.current_interval_minutes,
         Kind.AIR_QUALITY: settings.air_quality_interval_minutes,
         Kind.FORECAST: settings.forecast_interval_minutes,
+        Kind.HOURLY: settings.hourly_interval_minutes,
     }
 
 

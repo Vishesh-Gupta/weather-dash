@@ -17,6 +17,8 @@ def test_init_db_creates_all_tables(tmp_path):
         "locations",
         "weather_observations",
         "forecast_entries",
+        "hourly_forecasts",
+        "precipitation_nowcasts",
         "air_quality_readings",
         "daily_history",
         "collection_runs",

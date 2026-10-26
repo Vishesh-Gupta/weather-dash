@@ -28,12 +28,18 @@ def test_each_kind_gets_its_own_job(monkeypatch):
     monkeypatch.setenv("CURRENT_INTERVAL_MINUTES", "5")
     monkeypatch.setenv("AIR_QUALITY_INTERVAL_MINUTES", "30")
     monkeypatch.setenv("FORECAST_INTERVAL_MINUTES", "60")
+    monkeypatch.setenv("HOURLY_INTERVAL_MINUTES", "15")
     get_settings.cache_clear()
 
     jobs = schedule.Scheduler()
     scheduler.schedule_jobs(jobs, get_settings())
     by_kind = {next(iter(job.job_func.args[0])): job.interval for job in jobs.jobs}
-    assert by_kind == {Kind.CURRENT: 5, Kind.AIR_QUALITY: 30, Kind.FORECAST: 60}
+    assert by_kind == {
+        Kind.CURRENT: 5,
+        Kind.AIR_QUALITY: 30,
+        Kind.FORECAST: 60,
+        Kind.HOURLY: 15,
+    }
 
 
 def test_collect_once_passes_kinds(monkeypatch):

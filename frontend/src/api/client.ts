@@ -14,6 +14,9 @@ export type CollectionRun = Schemas['CollectionRunOut']
 export type Session = Schemas['SessionOut']
 export type OverviewItem = Schemas['OverviewItem']
 export type Normal = Schemas['NormalOut']
+export type Hourly = Schemas['HourlyOut']
+export type HourlyEntry = Schemas['HourlyEntryOut']
+export type NowcastEntry = Schemas['NowcastEntryOut']
 
 export class ApiError extends Error {
   readonly status: number
@@ -64,6 +67,7 @@ export const api = {
   observations: (id: number, days: number) =>
     request<Observation[]>(`/locations/${id}/observations?days=${days}`),
   forecast: (id: number) => request<Forecast>(`/locations/${id}/forecast`),
+  hourly: (id: number) => request<Hourly>(`/locations/${id}/hourly`),
   airQuality: (id: number, days: number) =>
     request<AirQuality[]>(`/locations/${id}/air-quality?days=${days}`),
   history: (id: number) => request<DailyHistory[]>(`/locations/${id}/history`),

@@ -30,10 +30,12 @@ Built to be hosted publicly: visitors browse, and only the admin manages what is
   plus search (admins can jump straight to adding an untracked place)
 - **Overview**: every location as a card showing its own current sky, with feels-like, wind,
   humidity, today's range, air quality and how today compares with normal
-- **Now**: current conditions, the next 24 hours, and an instrument for each reading that says
-  what it means: wind on the Beaufort scale with a direction dial, humidity with dew point and
-  how it feels, the 3-hour pressure tendency, rain or snow now or the chance in the next 6 hours,
-  cloud cover and visibility in words, air quality, and today against the climate normal and
+- **Now**: current conditions, the next 48 hours hour by hour with a temperature curve, and an
+  instrument for each reading that says what it means: wind on the Beaufort scale with a direction
+  dial, humidity with dew point and how it feels, the 3-hour pressure tendency, rain or snow in
+  the next two hours in 15-minute steps ("Rain starting around 11:45", "stopping around 15:15"),
+  the UV index with WHO advice and today's peak, cloud cover and visibility in words, air
+  quality, and today against the climate normal and
   record. Each shows a 24-hour trend line or meter and highlights briefly when live data changes
   it. Plus an observed temperature trend (24 hours to 30 days)
 - **Forecast**: daily summary table plus 3-hourly temperature, chance of precipitation and rain/snow amounts
@@ -68,7 +70,8 @@ Built to be hosted publicly: visitors browse, and only the admin manages what is
   it doesn't, and pauses in background tabs.
 - **API**: FastAPI with Pydantic models; serves the built frontend from the same origin.
 - **Scheduler**: collects current conditions, air quality and forecasts for every tracked location
-  on their own intervals, and refreshes history daily.
+  on their own intervals (the hourly forecast and rain nowcast from Open-Meteo every 15 minutes),
+  and refreshes history daily.
 - **Live updates**: the API watches for newly collected data and pushes it to open browsers over
   Server-Sent Events (`/api/events`), so pages update without reloading.
 - **Database**: SQLAlchemy models; PostgreSQL in Docker, SQLite for local development.
@@ -108,6 +111,7 @@ Set these in `.env` (see [`.env.example`](.env.example)):
 | `CURRENT_INTERVAL_MINUTES` | `5` | How often to collect current conditions |
 | `AIR_QUALITY_INTERVAL_MINUTES` | `30` | How often to collect air quality |
 | `FORECAST_INTERVAL_MINUTES` | `60` | How often to collect the 5-day forecast |
+| `HOURLY_INTERVAL_MINUTES` | `15` | How often to collect the hourly forecast and rain nowcast (Open-Meteo, no key) |
 | `APP_PORT` | `8000` | Host port for the web app |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `weather_*` | Database credentials |
 | `DATABASE_URL` | | Full SQLAlchemy URL; overrides the `POSTGRES_*` values |
@@ -168,7 +172,8 @@ sets an HTTP-only, `SameSite=Strict` session cookie. Failed sign-ins are rate li
 ## Data sources
 
 - Current weather, forecasts, air quality and geocoding: [OpenWeather](https://openweathermap.org/)
-- Historical daily weather: [Open-Meteo](https://open-meteo.com/) (CC BY 4.0)
+- Hourly forecast, UV, 15-minute rain nowcast and historical daily weather:
+  [Open-Meteo](https://open-meteo.com/) (CC BY 4.0)
 
 ## License
 

@@ -2,6 +2,7 @@ import type {
   AirQuality,
   DailyHistory,
   Forecast,
+  Hourly,
   Location,
   Observation,
   OverviewItem,
@@ -60,6 +61,43 @@ export const forecast: Forecast = {
     weather_main: i === 5 ? 'Rain' : 'Clouds',
     weather_description: null,
     weather_icon: null,
+  })),
+}
+
+// Toronto local time is UTC−4, so hour(0) is 10:00 local.
+const uvAt = (n: number) => {
+  const local = (10 + n) % 24
+  return local >= 7 && local < 18 ? +(3.4 * Math.sin(((local - 7) / 11) * Math.PI)).toFixed(1) : 0
+}
+
+export const hourly: Hourly = {
+  issued_at: hour(0),
+  hours: Array.from({ length: 48 }, (_, i) => {
+    const showery = i >= 2 && i <= 4
+    const local = (10 + i) % 24
+    return {
+      forecast_for: hour(i),
+      temp: 12 + (i % 6),
+      feels_like: 10 + (i % 6),
+      humidity: 65,
+      pop: showery ? 0.7 : 0.05,
+      precipitation: showery ? 0.8 : 0,
+      rain: showery ? 0.8 : 0,
+      snowfall: 0,
+      weather_code: showery ? 61 : 2,
+      clouds: showery ? 85 : 30,
+      wind_speed: 4.5,
+      wind_deg: 230,
+      wind_gust: 9,
+      uv_index: uvAt(i),
+      is_day: local >= 7 && local < 18,
+    }
+  }),
+  // From 14:30 (10:30 local): dry, then rain from 15:45.
+  nowcast: [0, 0, 0, 0, 0, 0.1, 0.3, 0.2].map((mm, i) => ({
+    forecast_for: new Date(Date.UTC(2026, 9, 21, 14, 30) + i * 15 * 60_000).toISOString(),
+    precipitation: mm,
+    snowfall: 0,
   })),
 }
 

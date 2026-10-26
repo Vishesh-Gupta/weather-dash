@@ -614,6 +614,223 @@
         "title": "HealthOut",
         "type": "object"
       },
+      "HourlyEntryOut": {
+        "properties": {
+          "clouds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clouds"
+          },
+          "feels_like": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feels Like"
+          },
+          "forecast_for": {
+            "format": "date-time",
+            "title": "Forecast For",
+            "type": "string"
+          },
+          "humidity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Humidity"
+          },
+          "is_day": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Day"
+          },
+          "pop": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Chance of precipitation, 0\u20131",
+            "title": "Pop"
+          },
+          "precipitation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "mm in the hour",
+            "title": "Precipitation"
+          },
+          "rain": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "mm in the hour, showers included",
+            "title": "Rain"
+          },
+          "snowfall": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "cm in the hour",
+            "title": "Snowfall"
+          },
+          "temp": {
+            "title": "Temp",
+            "type": "number"
+          },
+          "uv_index": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uv Index"
+          },
+          "weather_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "WMO weather interpretation code",
+            "title": "Weather Code"
+          },
+          "wind_deg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wind Deg"
+          },
+          "wind_gust": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wind Gust"
+          },
+          "wind_speed": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wind Speed"
+          }
+        },
+        "required": [
+          "forecast_for",
+          "temp",
+          "feels_like",
+          "humidity",
+          "pop",
+          "precipitation",
+          "rain",
+          "snowfall",
+          "weather_code",
+          "clouds",
+          "wind_speed",
+          "wind_deg",
+          "wind_gust",
+          "uv_index",
+          "is_day"
+        ],
+        "title": "HourlyEntryOut",
+        "type": "object"
+      },
+      "HourlyOut": {
+        "properties": {
+          "hours": {
+            "items": {
+              "$ref": "#/components/schemas/HourlyEntryOut"
+            },
+            "title": "Hours",
+            "type": "array"
+          },
+          "issued_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issued At"
+          },
+          "nowcast": {
+            "items": {
+              "$ref": "#/components/schemas/NowcastEntryOut"
+            },
+            "title": "Nowcast",
+            "type": "array"
+          }
+        },
+        "required": [
+          "issued_at",
+          "hours",
+          "nowcast"
+        ],
+        "title": "HourlyOut",
+        "type": "object"
+      },
       "LocationCreate": {
         "properties": {
           "country": {
@@ -827,6 +1044,47 @@
           "record_low"
         ],
         "title": "NormalOut",
+        "type": "object"
+      },
+      "NowcastEntryOut": {
+        "properties": {
+          "forecast_for": {
+            "description": "Start of the 15-minute slot",
+            "format": "date-time",
+            "title": "Forecast For",
+            "type": "string"
+          },
+          "precipitation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "mm in the 15 minutes",
+            "title": "Precipitation"
+          },
+          "snowfall": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "cm in the 15 minutes",
+            "title": "Snowfall"
+          }
+        },
+        "required": [
+          "forecast_for",
+          "precipitation",
+          "snowfall"
+        ],
+        "title": "NowcastEntryOut",
         "type": "object"
       },
       "ObservationOut": {
@@ -1772,6 +2030,49 @@
           }
         },
         "summary": "History",
+        "tags": [
+          "locations"
+        ]
+      }
+    },
+    "/api/locations/{location_id}/hourly": {
+      "get": {
+        "description": "The next 48 hours hour by hour, and precipitation for the next two hours in\n15-minute steps (Open-Meteo).",
+        "operationId": "hourly_api_locations__location_id__hourly_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "location_id",
+            "required": true,
+            "schema": {
+              "title": "Location Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HourlyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Hourly",
         "tags": [
           "locations"
         ]

@@ -81,6 +81,36 @@ class ForecastOut(BaseModel):
     entries: list[ForecastEntryOut]
 
 
+class HourlyEntryOut(ORMModel):
+    forecast_for: datetime
+    temp: float
+    feels_like: float | None
+    humidity: float | None
+    pop: float | None = Field(description="Chance of precipitation, 0–1")
+    precipitation: float | None = Field(description="mm in the hour")
+    rain: float | None = Field(description="mm in the hour, showers included")
+    snowfall: float | None = Field(description="cm in the hour")
+    weather_code: int | None = Field(description="WMO weather interpretation code")
+    clouds: float | None
+    wind_speed: float | None
+    wind_deg: float | None
+    wind_gust: float | None
+    uv_index: float | None
+    is_day: bool | None
+
+
+class NowcastEntryOut(ORMModel):
+    forecast_for: datetime = Field(description="Start of the 15-minute slot")
+    precipitation: float | None = Field(description="mm in the 15 minutes")
+    snowfall: float | None = Field(description="cm in the 15 minutes")
+
+
+class HourlyOut(BaseModel):
+    issued_at: datetime | None
+    hours: list[HourlyEntryOut]
+    nowcast: list[NowcastEntryOut]
+
+
 class AirQualityOut(ORMModel):
     observed_at: datetime
     aqi: int = Field(

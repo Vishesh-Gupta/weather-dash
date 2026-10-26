@@ -11,6 +11,7 @@ from src.api.schemas import (
     AirQualityOut,
     DailyHistoryOut,
     ForecastOut,
+    HourlyOut,
     LocationCreate,
     LocationOut,
     NormalOut,
@@ -21,7 +22,9 @@ from src.database.models import (
     AirQualityReading,
     DailyHistory,
     ForecastEntry,
+    HourlyForecast,
     Location,
+    PrecipitationNowcast,
     WeatherObservation,
 )
 
@@ -90,6 +93,24 @@ def forecast(location_id: int, db: DbSession):
             .order_by(ForecastEntry.forecast_for)
         ).all()
     return ForecastOut(issued_at=issued_at, entries=entries)
+
+
+@router.get("/{location_id}/hourly", response_model=HourlyOut)
+def hourly(location_id: int, db: DbSession):
+    """The next 48 hours hour by hour, and precipitation for the next two hours in
+    15-minute steps (Open-Meteo)."""
+    get_location_or_404(db, location_id)
+    hours = db.scalars(
+        select(HourlyForecast)
+        .where(HourlyForecast.location_id == location_id)
+        .order_by(HourlyForecast.forecast_for)
+    ).all()
+    nowcast = db.scalars(
+        select(PrecipitationNowcast)
+        .where(PrecipitationNowcast.location_id == location_id)
+        .order_by(PrecipitationNowcast.forecast_for)
+    ).all()
+    return HourlyOut(issued_at=hours[0].issued_at if hours else None, hours=hours, nowcast=nowcast)
 
 
 @router.get("/{location_id}/air-quality", response_model=list[AirQualityOut])

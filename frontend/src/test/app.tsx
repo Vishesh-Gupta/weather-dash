@@ -9,6 +9,7 @@ import { createAppRouter } from '../router'
 import {
   airQuality,
   forecast,
+  hourly,
   history,
   observation,
   overviewItem,
@@ -32,6 +33,7 @@ export const defaultRoutes = (): Routes => ({
     observation(47 - i, 10 + (i % 8)),
   ),
   'GET /api/locations/1/forecast': forecast,
+  'GET /api/locations/1/hourly': hourly,
   'GET /api/locations/1/air-quality': airQuality,
   'GET /api/locations/1/history': history,
   'GET /api/collection-runs/latest': {

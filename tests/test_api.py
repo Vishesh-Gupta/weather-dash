@@ -120,6 +120,30 @@ def test_forecast(client):
     assert times == sorted(times)
 
 
+def test_hourly(client):
+    location_id = seed()
+    body = client.get(f"/api/locations/{location_id}/hourly").json()
+    assert len(body["hours"]) == 48
+    assert len(body["nowcast"]) == 8
+    assert body["issued_at"] is not None
+    first = body["hours"][0]
+    assert {"uv_index", "pop", "weather_code", "is_day", "wind_gust"} <= first.keys()
+    times = [h["forecast_for"] for h in body["hours"]]
+    assert times == sorted(times)
+
+
+def test_hourly_before_any_collection(client):
+    from src.database import repository
+    from src.database.session import session_scope
+
+    with session_scope() as session:
+        loc = repository.add_location(session, name="Lima", country="PE", lat=-12.05, lon=-77.04)
+        location_id = loc.id
+    body = client.get(f"/api/locations/{location_id}/hourly").json()
+    assert body == {"issued_at": None, "hours": [], "nowcast": []}
+    assert client.get("/api/locations/999/hourly").status_code == 404
+
+
 def test_air_quality(client):
     location_id = seed()
     readings = client.get(f"/api/locations/{location_id}/air-quality?days=7").json()

@@ -17,6 +17,7 @@ export const queryKeys = {
 export const KIND_QUERIES: Record<string, readonly string[]> = {
   current: ['current', 'observations'],
   forecast: ['forecast'],
+  hourly: ['hourly'],
   air_quality: ['air-quality'],
 }
 
@@ -44,6 +45,13 @@ export const forecastQuery = (id: number) =>
   queryOptions({
     queryKey: [...queryKeys.location(id), 'forecast'],
     queryFn: () => api.forecast(id),
+    staleTime: DATA_STALE_MS,
+  })
+
+export const hourlyQuery = (id: number) =>
+  queryOptions({
+    queryKey: [...queryKeys.location(id), 'hourly'],
+    queryFn: () => api.hourly(id),
     staleTime: DATA_STALE_MS,
   })
 

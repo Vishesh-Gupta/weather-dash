@@ -6,6 +6,7 @@ openweather:
 
 open_meteo:
   archive_url: https://archive-api.open-meteo.com/v1/archive
+  forecast_url: https://api.open-meteo.com/v1/forecast
   # Years of daily history to backfill when a location is first tracked.
   backfill_years: 5
 
@@ -15,6 +16,9 @@ scheduler:
   current_minutes: 5
   air_quality_minutes: 30
   forecast_minutes: 60
+  # Open-Meteo's hourly forecast and 15-minute rain nowcast; the nowcast updates
+  # every 15 minutes in North America and Europe.
+  hourly_minutes: 15
 
 events:
   # How often the API checks for new data to push to open browsers.
