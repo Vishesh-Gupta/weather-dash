@@ -62,9 +62,14 @@ export function Conditions({
   const falling = amountNow > 0 || snowing || ['drizzle', 'rain', 'thunder'].includes(condition)
   const versus = versusNormal(today?.high, normal?.temp_max)
   const aqi = air ? aqiLevel(air.aqi) : null
+  // A millimetre is 0.04 in, so inches need another decimal place.
+  const digits = units.system === 'metric' ? 1 : 2
 
   return (
-    <div className="instruments">
+    <section className="instruments" aria-labelledby="conditions-heading">
+      <h2 id="conditions-heading" className="visually-hidden">
+        Conditions
+      </h2>
       <Instrument
         label="Wind"
         value={wind == null ? dash : String(Math.round(units.wind(wind)))}
@@ -125,7 +130,7 @@ export function Conditions({
         label="Precipitation"
         value={
           amountNow > 0
-            ? units.precip(amountNow).toFixed(1)
+            ? units.precip(amountNow).toFixed(digits)
             : falling
               ? 'Now'
               : ahead
@@ -143,7 +148,7 @@ export function Conditions({
             <>
               {ahead.kind === 'snow' ? 'Snow' : 'Rain'} most likely around {time(ahead.at)}
               {ahead.amount >= 0.1
-                ? ` · ${units.precip(ahead.amount).toFixed(1)} ${units.precipLabel}`
+                ? ` · ${units.precip(ahead.amount).toFixed(digits)} ${units.precipLabel}`
                 : ''}
             </>
           ) : ahead ? (
@@ -219,11 +224,13 @@ export function Conditions({
                   : ''}
               </div>
             </>
+          ) : normal?.temp_max != null ? (
+            "Waiting for today's readings"
           ) : (
             'Appears once history is collected'
           )
         }
       />
-    </div>
+    </section>
   )
 }

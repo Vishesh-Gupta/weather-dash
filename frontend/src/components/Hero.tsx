@@ -1,11 +1,11 @@
 import { Link } from '@tanstack/react-router'
 
 import type { Location, Observation } from '../api/client'
-import { versusNormal } from '../lib/insights'
+import { STALE_READING_MS, isStale, versusNormal } from '../lib/insights'
 import { sceneFor } from '../lib/scene'
 import { skyStyle } from '../lib/skyStyle'
 import { skyFor } from '../lib/sky'
-import { formatTime, toLocationTime } from '../lib/time'
+import { formatDayTime, formatTime, toLocationTime } from '../lib/time'
 import { compass, type Units } from '../lib/units'
 import { relativeTime, useNow } from '../lib/useNow'
 import { LiveValue } from './Instrument'
@@ -37,8 +37,20 @@ interface HeroProps {
 export function Hero({ location, obs, units, today }: HeroProps) {
   const sky = skyFor(obs)
   const offset = location.utc_offset_seconds
+  const now = useNow(60_000)
+  const stale = isStale(obs.observed_at, now, STALE_READING_MS)
+  const observed = toLocationTime(obs.observed_at, offset)
   return (
-    <section className="hero" aria-label={`Current weather in ${location.display_name}`}>
+    <section
+      className={stale ? 'hero is-stale' : 'hero'}
+      aria-label={`Current weather in ${location.display_name}`}
+    >
+      {stale ? (
+        <p className="stale-notice" role="status">
+          <strong>Not updating.</strong> No new readings since {formatDayTime(observed)} local time
+          ({relativeTime(Date.parse(obs.observed_at), now)}); these are the last ones collected.
+        </p>
+      ) : null}
       <div className="hero-now">
         <span className="hero-temp">
           <LiveValue value={`${Math.round(units.temp(obs.temp))}°`} />
@@ -64,7 +76,7 @@ export function Hero({ location, obs, units, today }: HeroProps) {
       </div>
       <SunArc obs={obs} offset={offset} />
       <div className="hero-foot">
-        Observed {formatTime(toLocationTime(obs.observed_at, offset))} · updated{' '}
+        Observed {stale ? formatDayTime(observed) : formatTime(observed)} · updated{' '}
         <UpdatedAgo iso={obs.observed_at} />
       </div>
     </section>
@@ -82,15 +94,16 @@ interface CardProps {
 }
 
 export function LocationCard({ location, obs, units, today, aqi, normalHigh }: CardProps) {
+  const now = useNow(60_000)
+  const stale = obs ? isStale(obs.observed_at, now, STALE_READING_MS) : false
   const versus = versusNormal(today?.high, normalHigh)
   const delta = versus ? Math.round(units.temp(versus.difference) - units.temp(0)) : 0
-  const now = useNow(60_000)
   const scene = obs ? sceneFor(obs, location, now) : null
   return (
     <Link
       to="/locations/$locationId"
       params={{ locationId: location.id }}
-      className="location-card"
+      className={stale ? 'location-card is-stale' : 'location-card'}
       style={scene ? skyStyle(scene.palette) : undefined}
     >
       <div className="card-top">
@@ -132,12 +145,13 @@ export function LocationCard({ location, obs, units, today, aqi, normalHigh }: C
             ) : null}
           </dl>
           <div className="card-meta">
-            {today ? (
+            {today && !stale ? (
               <span>
                 H {Math.round(units.temp(today.high))}° · L {Math.round(units.temp(today.low))}°
               </span>
             ) : null}
-            {versus?.notable ? (
+            {stale ? <span className="chip chip-warning">Not updating</span> : null}
+            {versus?.notable && !stale ? (
               <span className={`chip chip-${versus.difference > 0 ? 'warm' : 'cold'}`}>
                 {delta > 0 ? '+' : '−'}
                 {Math.abs(delta)}° vs normal

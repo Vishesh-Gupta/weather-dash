@@ -142,7 +142,8 @@ export function precipitationAhead(
   const wet = chance >= 0.2 || amount >= 0.2
   return {
     chance,
-    at: wet ? likeliest.forecast_for : null,
+    // A slot that already began reads as "now", not a time in the past.
+    at: wet ? new Date(Math.max(Date.parse(likeliest.forecast_for), nowMs)).toISOString() : null,
     kind: wet ? (snowy ? 'snow' : 'rain') : null,
     amount,
   }
@@ -157,3 +158,12 @@ export function versusNormal(
   const difference = value - normal
   return { difference, notable: Math.abs(difference) >= 1 }
 }
+
+/** Readings older than this mean collection is delayed or has stopped. */
+export const STALE_READING_MS = 3 * HOUR_MS
+/** A forecast issued longer ago than this is no longer a forecast worth showing. */
+export const STALE_FORECAST_MS = 24 * HOUR_MS
+
+/** Whether a timestamp is too old to present as current, given the time now. */
+export const isStale = (iso: string | null | undefined, nowMs: number, limitMs: number) =>
+  iso != null && nowMs - Date.parse(iso) > limitMs

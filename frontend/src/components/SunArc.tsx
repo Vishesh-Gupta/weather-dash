@@ -62,7 +62,7 @@ export function SunArc({ obs, offset }: { obs: Observation; offset: number | nul
           <div className="sun-arc-label">{left.label}</div>
           <div className="sun-arc-time">{left.time}</div>
         </div>
-        <div className="sun-arc-center" role="status">
+        <div className="sun-arc-center">
           {day ? (
             <>
               <div>Daylight {formatDuration(clock.dayLengthMs)}</div>

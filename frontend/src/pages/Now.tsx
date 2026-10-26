@@ -11,12 +11,13 @@ import { Hero } from '../components/Hero'
 import { NextHours } from '../components/NextHours'
 import { Segmented } from '../components/Segmented'
 import { ErrorNotice, Loading, Notice } from '../components/States'
+import { useLocation } from '../lib/useLocation'
+import { STALE_FORECAST_MS, STALE_READING_MS, isStale } from '../lib/insights'
 import { toLocationTime } from '../lib/time'
 import { OBSERVATION_WINDOWS } from '../lib/periods'
 import { useNow } from '../lib/useNow'
 import { usePreferences } from '../preferences-context'
 
-const locationRoute = getRouteApi('/locations/$locationId')
 const nowRoute = getRouteApi('/locations/$locationId/')
 
 function ObservedTrend({ locationId, offset }: { locationId: number; offset: number | null }) {
@@ -70,13 +71,16 @@ function ObservedTrend({ locationId, offset }: { locationId: number; offset: num
 }
 
 export function NowPage() {
-  const location = locationRoute.useLoaderData()
+  const location = useLocation()
   const { units } = usePreferences()
   const nowMs = useNow(60_000)
   const { data: obs, isPending, error, refetch } = useQuery(currentQuery(location.id))
   // The last day of readings drives the trend lines; refreshed live with the rest.
   const { data: recent = [] } = useQuery(observationsQuery(location.id, 1))
   const { data: forecast } = useQuery(forecastQuery(location.id))
+  // A forecast issued days ago (collection stopped) is no forecast at all.
+  const entries =
+    forecast && !isStale(forecast.issued_at, nowMs, STALE_FORECAST_MS) ? forecast.entries : []
   // Today's range, air quality and normal come from the shared overview.
   const { data: overview } = useQuery({
     ...overviewQuery(),
@@ -88,20 +92,22 @@ export function NowPage() {
   if (error) return <ErrorNotice error={error} onRetry={() => void refetch()} />
   if (!obs)
     return <Notice>No observations yet. They appear after the next scheduled collection.</Notice>
+  // Today's range belongs to today; old readings can't be compared with it.
+  const today = isStale(obs.observed_at, nowMs, STALE_READING_MS) ? null : overview?.today
 
   return (
     <div className="stack">
-      <Hero location={location} obs={obs} units={units} today={overview?.today} />
-      {forecast?.entries.length ? (
-        <NextHours entries={forecast.entries} nowMs={nowMs} offset={offset} units={units} />
+      <Hero location={location} obs={obs} units={units} today={today} />
+      {entries.length ? (
+        <NextHours entries={entries} nowMs={nowMs} offset={offset} units={units} />
       ) : null}
       <Conditions
         locationId={location.id}
         obs={obs}
         recent={recent}
-        forecast={forecast?.entries ?? []}
+        forecast={entries}
         air={overview?.air_quality ?? null}
-        today={overview?.today ?? null}
+        today={today ?? null}
         normal={overview?.normal ?? null}
         nowMs={nowMs}
         offset={offset}

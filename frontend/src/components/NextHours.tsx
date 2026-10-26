@@ -32,8 +32,9 @@ export function NextHours({
               </time>
               <WeatherIcon sky={sky} size={22} />
               <span className="next-hours-temp">{Math.round(units.temp(e.temp))}°</span>
-              <span className="next-hours-pop" aria-label={`${pop}% chance of precipitation`}>
-                {pop >= 10 ? `${pop}%` : ' '}
+              <span className="next-hours-pop">
+                <span aria-hidden="true">{pop >= 10 ? `${pop}%` : ' '}</span>
+                <span className="visually-hidden">{pop}% chance of precipitation</span>
               </span>
             </li>
           )

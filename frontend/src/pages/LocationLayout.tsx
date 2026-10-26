@@ -1,5 +1,6 @@
 import { getRouteApi, Link, Outlet } from '@tanstack/react-router'
 
+import { useLocation } from '../lib/useLocation'
 import { formatUtcOffset } from '../lib/time'
 
 const TABS = [
@@ -12,7 +13,7 @@ const TABS = [
 const locationRoute = getRouteApi('/locations/$locationId')
 
 export function LocationLayout() {
-  const location = locationRoute.useLoaderData()
+  const location = useLocation()
   const { locationId } = locationRoute.useParams()
 
   return (

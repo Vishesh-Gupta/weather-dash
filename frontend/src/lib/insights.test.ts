@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest'
 
 import { forecast, observation } from '../test/fixtures'
 import {
+  STALE_FORECAST_MS,
+  STALE_READING_MS,
   beaufort,
   cloudLabel,
   dewPoint,
   humidityFeel,
+  isStale,
   precipitationAhead,
   pressureTrend,
   versusNormal,
@@ -90,6 +93,11 @@ describe('precipitationAhead', () => {
     expect(ahead?.amount).toBeCloseTo(1.2)
   })
 
+  it('says "now" rather than a time already past', () => {
+    const ahead = precipitationAhead(forecast.entries, at('2026-10-22T09:40:00Z'))
+    expect(ahead).toMatchObject({ kind: 'rain', at: '2026-10-22T09:40:00.000Z' })
+  })
+
   it('has nothing to say beyond the forecast', () => {
     expect(precipitationAhead(forecast.entries, at('2026-11-01T00:00:00Z'))).toBeNull()
   })
@@ -100,5 +108,20 @@ describe('versusNormal', () => {
     expect(versusNormal(19, 15.5)).toEqual({ difference: 3.5, notable: true })
     expect(versusNormal(15.8, 15.5)?.notable).toBe(false)
     expect(versusNormal(null, 15)).toBeNull()
+  })
+})
+
+describe('isStale', () => {
+  const now = Date.parse('2026-10-26T12:00:00Z')
+
+  it('flags readings older than the limit', () => {
+    expect(isStale('2026-10-26T10:00:00Z', now, STALE_READING_MS)).toBe(false)
+    expect(isStale('2026-10-26T08:30:00Z', now, STALE_READING_MS)).toBe(true)
+    expect(isStale('2026-10-25T13:00:00Z', now, STALE_FORECAST_MS)).toBe(false)
+    expect(isStale('2026-10-21T18:00:00Z', now, STALE_FORECAST_MS)).toBe(true)
+  })
+
+  it('treats a missing time as not stale', () => {
+    expect(isStale(null, now, STALE_READING_MS)).toBe(false)
   })
 })

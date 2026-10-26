@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, Outlet } from '@tanstack/react-router'
+import { Link, Outlet, useParams } from '@tanstack/react-router'
 import { useMemo } from 'react'
 
 import { api } from '../api/client'
@@ -77,7 +77,9 @@ function useActiveScene() {
 
 export function Layout() {
   const { units, setUnitSystem } = usePreferences()
-  const { items, active, scene } = useActiveScene()
+  const { items, scene } = useActiveScene()
+  // The sky follows the last location visited, but only a location page is "current".
+  const { locationId } = useParams({ strict: false })
 
   return (
     <div className="app" style={scene ? skyStyle(scene.palette) : undefined}>
@@ -101,7 +103,7 @@ export function Layout() {
           <SessionControls />
         </nav>
       </header>
-      <LocationSwitcher items={items} activeId={active?.location.id} />
+      <LocationSwitcher items={items} activeId={locationId} />
       <main className="main" id="main">
         <Outlet />
       </main>
