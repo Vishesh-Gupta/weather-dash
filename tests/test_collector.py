@@ -86,6 +86,25 @@ def test_run_collection_stores_everything(app_db):
     assert history.requests == [(date(2020, 10, 1), date(2025, 10, 20))]
 
 
+def test_history_outage_keeps_current_data(app_db):
+    add_locations((43.65, -79.38))
+
+    class Down(StubHistoryClient):
+        def daily_history(self, lat, lon, start, end):
+            raise RuntimeError("Open-Meteo returned 429")
+
+    run = collector.run_collection(StubWeatherClient(), Down(), now=NOW)
+
+    assert run.status == "partial"
+    assert "history" in run.errors
+    assert count(WeatherObservation) == 1
+    assert count(ForecastEntry) == 3
+    assert count(DailyHistory) == 0
+    with session_scope() as session:
+        # Still due, so the next run tries again.
+        assert collector.history_due(session.scalars(select(Location)).one(), NOW)
+
+
 def test_repeated_runs_are_idempotent(app_db):
     add_locations((43.65, -79.38))
     weather, history = StubWeatherClient(), StubHistoryClient()

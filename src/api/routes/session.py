@@ -23,7 +23,9 @@ def get_session(request: Request, settings: AppSettings):
 def sign_in(body: SignIn, request: Request, settings: AppSettings):
     if not settings.admin_password:
         return _session_out(request, settings)
-    result = login_throttle.attempt(body.password, settings.admin_password)
+    # Behind a proxy this is the forwarded address (uvicorn --proxy-headers).
+    client = request.client.host if request.client else ""
+    result = login_throttle.attempt(body.password, settings.admin_password, client)
     if result is None:
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,

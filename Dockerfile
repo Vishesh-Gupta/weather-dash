@@ -41,5 +41,10 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD ["python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4).status == 200 else 1)"]
 
+# Addresses whose X-Forwarded-* headers are believed (sign-in throttling and secure
+# cookies use them). Set it to your reverse proxy's address; "*" trusts anyone who
+# can reach the port, so only keep it if the port isn't reachable except via the proxy.
+ENV FORWARDED_ALLOW_IPS="*"
+
 # Web app and API. The scheduler service overrides this command.
-CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]

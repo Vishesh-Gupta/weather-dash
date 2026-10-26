@@ -104,6 +104,7 @@ Set these in `.env` (see [`.env.example`](.env.example)):
 | `ADMIN_PASSWORD` | unset | Enables public mode: visitors are read-only, admin signs in to manage |
 | `SESSION_SECRET` | random per start | Signs admin session cookies; set it so sign-ins survive restarts |
 | `SESSION_COOKIE_SECURE` | `false` | Set `true` when served over HTTPS |
+| `FORWARDED_ALLOW_IPS` | `*` | Proxies whose `X-Forwarded-*` headers are trusted; set to your reverse proxy's address |
 | `CURRENT_INTERVAL_MINUTES` | `5` | How often to collect current conditions |
 | `AIR_QUALITY_INTERVAL_MINUTES` | `30` | How often to collect air quality |
 | `FORECAST_INTERVAL_MINUTES` | `60` | How often to collect the 5-day forecast |
@@ -118,8 +119,10 @@ backfill.
 
 Set `ADMIN_PASSWORD` (a long random value), `SESSION_SECRET`, and `SESSION_COOKIE_SECURE=true`, and
 put the `app` service behind a TLS-terminating reverse proxy that doesn't buffer `text/event-stream`
-responses (Caddy and nginx both honour the `X-Accel-Buffering: no` header the API sends). Postgres is
-only bound to localhost.
+responses (Caddy and nginx both honour the `X-Accel-Buffering: no` header the API sends). Set
+`FORWARDED_ALLOW_IPS` to the proxy's address, or make sure the app port is reachable only through
+the proxy, so clients can't fake their address to dodge the sign-in limit. Postgres is only bound to
+localhost.
 Without `ADMIN_PASSWORD` anyone who can reach the site can add locations and spend your API quota.
 
 ## Development

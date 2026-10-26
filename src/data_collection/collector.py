@@ -154,7 +154,9 @@ def run_collection(
     `location_ids` limits the run to specific locations (e.g. one just added) and
     `kinds` to specific data. History is synced whenever it is due, in any run.
 
-    Each location is committed separately so one failure does not discard the others.
+    Each location is committed separately so one failure does not discard the others,
+    and its history separately again: an Open-Meteo outage must not throw away the
+    OpenWeather readings it was collected alongside.
     """
     settings = get_settings()
     now = now or datetime.now(UTC)
@@ -182,15 +184,22 @@ def run_collection(
             with session_scope() as session:
                 location = session.get(Location, location_id)
                 counts = collect_current_data(session, weather_client, location, now, kinds)
-                if history_due(location, now):
-                    counts["history_days"] = sync_history(
-                        session, history_client, location, now, settings.backfill_years
-                    )
                 logger.info("Collected %s: %s", location.display_name, counts)
             processed += 1
         except Exception as exc:
             logger.exception("Collection failed for location %s", location_id)
             errors.append(f"location {location_id}: {exc}")
+        try:
+            with session_scope() as session:
+                location = session.get(Location, location_id)
+                if history_due(location, now):
+                    days = sync_history(
+                        session, history_client, location, now, settings.backfill_years
+                    )
+                    logger.info("History for %s: %s days", location.display_name, days)
+        except Exception as exc:
+            logger.exception("History sync failed for location %s", location_id)
+            errors.append(f"location {location_id} history: {exc}")
 
     with session_scope() as session:
         run = session.get(CollectionRun, run_id)

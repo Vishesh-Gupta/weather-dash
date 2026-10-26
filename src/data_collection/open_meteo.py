@@ -69,7 +69,7 @@ class OpenMeteoClient:
                 timeout=max(self.settings.timeout_seconds, 30),
             )
         except requests.RequestException as exc:
-            raise OpenMeteoError(f"Open-Meteo request failed: {exc}") from exc
+            raise OpenMeteoError(f"Open-Meteo request failed: {type(exc).__name__}") from exc
         if not response.ok:
             try:
                 reason = response.json().get("reason", response.text[:200])

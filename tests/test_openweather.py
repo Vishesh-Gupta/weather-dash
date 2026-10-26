@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 import pytest
+import requests
 import responses
 from responses import matchers
 
@@ -123,3 +124,17 @@ def test_rate_limiter_waits_between_calls():
     now[0] += 5
     limiter.wait()
     assert slept == [pytest.approx(0.75)]
+
+
+@responses.activate
+def test_connection_errors_never_reveal_the_key(client):
+    # requests puts the full URL, query string and all, in connection errors.
+    url = f"{BASE}/data/2.5/weather?lat=1&lon=2&appid=test-key"
+    responses.get(
+        f"{BASE}/data/2.5/weather",
+        body=requests.ConnectionError(f"Max retries exceeded with url: {url}"),
+    )
+    with pytest.raises(OpenWeatherError) as caught:
+        client.current(1, 2)
+    assert "test-key" not in str(caught.value)
+    assert "ConnectionError" in str(caught.value)
