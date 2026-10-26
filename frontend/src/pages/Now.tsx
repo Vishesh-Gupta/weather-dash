@@ -4,6 +4,7 @@ import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { useMemo } from 'react'
 
 import {
+  alertsQuery,
   currentQuery,
   forecastQuery,
   hourlyQuery,
@@ -11,6 +12,7 @@ import {
   overviewQuery,
 } from '../api/queries'
 import { temperatureChart, type TempRow } from '../charts/definitions'
+import { Alerts } from '../components/Alerts'
 import { ChartCard } from '../components/ChartCard'
 import { Conditions } from '../components/Conditions'
 import { Hero } from '../components/Hero'
@@ -97,6 +99,7 @@ export function NowPage() {
   // Open-Meteo's hourly forecast refreshes every 15 minutes; after a few hours without
   // an update it has stopped, and its nowcast with it.
   const { data: hourly } = useQuery(hourlyQuery(location.id))
+  const { data: alerts = [] } = useQuery(alertsQuery(location.id))
   const fresh = hourly && !isStale(hourly.issued_at, nowMs, STALE_HOURLY_MS)
   const hours = fresh ? hourly.hours : []
   const nowcast = fresh && !isStale(hourly.issued_at, nowMs, STALE_NOWCAST_MS) ? hourly.nowcast : []
@@ -117,6 +120,7 @@ export function NowPage() {
 
   return (
     <div className="stack">
+      <Alerts alerts={alerts} offset={offset} nowMs={nowMs} />
       <Hero location={location} obs={obs} units={units} today={today} />
       <NextHours
         slots={slots}

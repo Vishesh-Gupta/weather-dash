@@ -1503,3 +1503,94 @@ table.data tbody tr:last-child td {
     font-size: 0.75rem;
   }
 }
+
+/* --- Weather alerts ---------------------------------------------------------------------- */
+
+.alerts {
+  display: grid;
+  gap: 8px;
+}
+
+.alert {
+  --alert: var(--status-warning);
+  border: 1px solid color-mix(in srgb, var(--alert) 55%, transparent);
+  border-left: 4px solid var(--alert);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--alert) 16%, rgba(10, 14, 22, 0.78));
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+
+.alert-serious {
+  --alert: var(--status-serious);
+}
+
+.alert-critical {
+  --alert: var(--status-critical);
+}
+
+.alert summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.alert summary::-webkit-details-marker {
+  display: none;
+}
+
+.alert summary::after {
+  content: '';
+  margin-left: auto;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--text-secondary);
+  border-bottom: 2px solid var(--text-secondary);
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+}
+
+.alert[open] summary::after {
+  transform: rotate(-135deg);
+}
+
+.alert summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: 12px;
+}
+
+.alert-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--alert);
+  color: #10131a;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.alert-title strong {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.alert-when {
+  color: var(--text-secondary);
+}
+
+.alert-body {
+  padding: 0 14px 12px 46px;
+  font-size: 0.9375rem;
+}
+
+.alert-body p {
+  margin: 0 0 8px;
+  white-space: pre-line;
+}

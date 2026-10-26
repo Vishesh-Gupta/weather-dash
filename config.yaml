@@ -3,6 +3,10 @@ openweather:
   # Seconds to wait between API calls to stay under the free tier limit (60 calls/min).
   request_delay_seconds: 1.1
   timeout_seconds: 10
+  # Weather alerts need OpenWeather's One Call API 3.0, a separate subscription
+  # ("One Call by Call": 1,000 free calls a day, then billed per call). Each
+  # location costs one call per alerts interval. ONE_CALL_ENABLED overrides this.
+  one_call_enabled: false
 
 open_meteo:
   archive_url: https://archive-api.open-meteo.com/v1/archive
@@ -19,6 +23,8 @@ scheduler:
   # Open-Meteo's hourly forecast and 15-minute rain nowcast; the nowcast updates
   # every 15 minutes in North America and Europe.
   hourly_minutes: 15
+  # Only when One Call is enabled. 5 locations every 15 minutes is 480 calls a day.
+  alerts_minutes: 15
 
 events:
   # How often the API checks for new data to push to open browsers.

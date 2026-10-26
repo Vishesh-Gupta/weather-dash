@@ -3,6 +3,7 @@ from datetime import UTC, datetime, time, timedelta
 from fastapi import APIRouter
 from sqlalchemy import func, select
 
+from src.api.alerts import active_alerts
 from src.api.deps import DbSession
 from src.api.history import location_today, normals
 from src.api.schemas import OverviewItem, TodayRange
@@ -64,6 +65,7 @@ def overview(db: DbSession):
                 air_quality=_latest(db, AirQualityReading, location.id),
                 today=_today_range(db, location),
                 normal=normal[0] if normal and normal[0].years else None,
+                alerts=active_alerts(db, location.id),
             )
         )
     return items

@@ -2,7 +2,7 @@
 
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ORMModel(BaseModel):
@@ -111,6 +111,22 @@ class HourlyOut(BaseModel):
     nowcast: list[NowcastEntryOut]
 
 
+class AlertOut(ORMModel):
+    sender: str | None = Field(description="The issuing agency")
+    event: str = Field(description='The alert\'s name, e.g. "Severe Thunderstorm Warning"')
+    starts_at: datetime | None
+    ends_at: datetime | None
+    description: str | None
+    tags: list[str] = Field(description="Categories such as Wind or Flood")
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def split_tags(cls, value: str | list[str] | None) -> list[str]:
+        if isinstance(value, list):
+            return value
+        return [tag for tag in (value or "").split(",") if tag]
+
+
 class AirQualityOut(ORMModel):
     observed_at: datetime
     aqi: int = Field(
@@ -181,12 +197,16 @@ class OverviewItem(BaseModel):
         description="Forecast high and low for the location's current day"
     )
     normal: NormalOut | None = Field(description="Normal for the location's current day")
+    alerts: list[AlertOut] = Field(description="Weather alerts in force")
 
 
 class SessionOut(BaseModel):
     is_admin: bool = Field(description="Whether this browser may manage locations")
     auth_required: bool = Field(description="Whether an admin password is configured")
     can_collect: bool = Field(description="Whether an OpenWeather API key is configured")
+    alerts_enabled: bool = Field(
+        description="Whether weather alerts are collected (OpenWeather One Call 3.0)"
+    )
 
 
 class SignIn(BaseModel):

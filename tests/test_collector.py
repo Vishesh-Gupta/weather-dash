@@ -9,6 +9,7 @@ from src.data_collection.open_meteo import parse_forecast as parse_hourly
 from src.data_collection.openweather import (
     OpenWeatherError,
     parse_air_quality,
+    parse_alerts,
     parse_current,
     parse_forecast,
 )
@@ -21,9 +22,11 @@ from src.database.models import (
     HourlyForecast,
     Location,
     PrecipitationNowcast,
+    WeatherAlert,
     WeatherObservation,
 )
 from src.database.session import session_scope
+from src.utils.config import get_settings
 from tests.conftest import load_fixture
 
 NOW = datetime(2025, 10, 21, 14, 30, tzinfo=UTC)
@@ -50,6 +53,10 @@ class StubWeatherClient:
     def air_quality(self, lat, lon):
         self._check(lat)
         return parse_air_quality(load_fixture("air_pollution.json"))
+
+    def alerts(self, lat, lon):
+        self._check(lat)
+        return parse_alerts(load_fixture("one_call_alerts.json"))
 
 
 class StubHistoryClient:
@@ -321,3 +328,39 @@ def test_hourly_runs_need_no_openweather_key(app_db, monkeypatch):
     )
     assert run.status == "success"
     assert count(HourlyForecast) == 48
+
+
+def test_alerts_are_skipped_unless_enabled(app_db):
+    add_locations((43.65, -79.38))
+    run = collector.run_collection(StubWeatherClient(), StubHistoryClient(), now=NOW)
+    assert "alerts" not in run.kinds
+    assert count(WeatherAlert) == 0
+
+
+def test_alerts_replace_previous_ones(app_db, monkeypatch):
+    monkeypatch.setenv("ONE_CALL_ENABLED", "true")
+    get_settings.cache_clear()
+    add_locations((43.65, -79.38))
+    alerts_only = frozenset({collector.Kind.ALERTS})
+    collector.run_collection(StubWeatherClient(), StubHistoryClient(), now=NOW, kinds=alerts_only)
+    run = collector.run_collection(
+        StubWeatherClient(), StubHistoryClient(), now=NOW, kinds=alerts_only
+    )
+    assert run.status == "success"
+    assert run.kinds == "alerts"
+    assert count(WeatherAlert) == 2
+
+
+def test_alert_failures_keep_other_data(app_db, monkeypatch):
+    monkeypatch.setenv("ONE_CALL_ENABLED", "true")
+    get_settings.cache_clear()
+    add_locations((43.65, -79.38))
+
+    class NoSubscription(StubWeatherClient):
+        def alerts(self, lat, lon):
+            raise OpenWeatherError("One Call API 3.0 isn't enabled for this key (401).")
+
+    run = collector.run_collection(NoSubscription(), StubHistoryClient(), now=NOW)
+    assert run.status == "partial"
+    assert "alerts" in run.errors
+    assert count(WeatherObservation) == 1

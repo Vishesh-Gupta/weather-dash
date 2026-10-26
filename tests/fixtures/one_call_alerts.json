@@ -1,0 +1,24 @@
+{
+  "lat": 43.65,
+  "lon": -79.38,
+  "timezone": "America/Toronto",
+  "timezone_offset": -14400,
+  "alerts": [
+    {
+      "sender_name": "Environment and Climate Change Canada",
+      "event": "Wind Warning",
+      "start": 1761055200,
+      "end": 1761102000,
+      "description": "Strong winds that may cause damage are expected or occurring.\nGusts of 90 km/h are expected.",
+      "tags": ["Wind"]
+    },
+    {
+      "sender_name": "Environment and Climate Change Canada",
+      "event": "Special Weather Statement",
+      "start": 1761048000,
+      "end": 1761134400,
+      "description": "Heavy rain at times today.",
+      "tags": []
+    }
+  ]
+}

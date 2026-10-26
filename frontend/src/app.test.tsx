@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { mockApi, renderApp } from './test/app'
-import { adminSession, overviewItem, toronto } from './test/fixtures'
+import { adminSession, overviewItem, toronto, windWarning } from './test/fixtures'
 
 beforeEach(() => {
   window.localStorage.clear()
@@ -151,6 +151,28 @@ describe('visitor views', () => {
     const hero = await screen.findByRole('region', { name: /Current weather in Toronto/ })
     expect(hero).not.toHaveClass('is-stale')
     expect(within(hero).queryByText(/Not updating/)).toBeNull()
+  })
+
+  it('leads with weather alerts, each opening to its full text', async () => {
+    mockApi({ 'GET /api/locations/1/alerts': [windWarning] })
+    renderApp('/locations/1')
+    const alerts = await screen.findByRole('region', { name: 'Weather alerts' })
+    // Ends 23:00 local, later the same day.
+    const summary = within(alerts).getByText('Wind Warning').closest('summary')!
+    expect(summary).toHaveTextContent('Wind Warning · until 23:00')
+    expect(within(alerts).getByText(/Gusts of 90 km\/h/)).not.toBeVisible()
+    await userEvent.setup().click(summary)
+    expect(within(alerts).getByText(/Gusts of 90 km\/h/)).toBeVisible()
+    expect(
+      within(alerts).getByText('Issued by Environment and Climate Change Canada'),
+    ).toBeVisible()
+  })
+
+  it('flags alerts on the overview', async () => {
+    mockApi({ 'GET /api/overview': [{ ...overviewItem(), alerts: [windWarning] }] })
+    renderApp('/')
+    const card = await screen.findByRole('link', { name: /Toronto.*Wind Warning/s })
+    expect(within(card).getByText('Wind Warning')).toHaveClass('chip-serious')
   })
 
   it('remembers the unit preference', async () => {

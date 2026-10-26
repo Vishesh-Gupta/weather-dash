@@ -54,3 +54,23 @@ def test_collect_once_passes_kinds(monkeypatch):
     )
     scheduler.collect_once(frozenset({Kind.CURRENT}))
     assert seen == [frozenset({Kind.CURRENT})]
+
+
+def test_alerts_are_scheduled_only_when_enabled(monkeypatch):
+    import schedule
+
+    from src.data_collection.collector import Kind
+    from src.utils.config import get_settings
+
+    get_settings.cache_clear()
+    jobs = schedule.Scheduler()
+    scheduler.schedule_jobs(jobs, get_settings())
+    assert Kind.ALERTS not in {next(iter(job.job_func.args[0])) for job in jobs.jobs}
+
+    monkeypatch.setenv("ONE_CALL_ENABLED", "1")
+    monkeypatch.setenv("ALERTS_INTERVAL_MINUTES", "20")
+    get_settings.cache_clear()
+    jobs = schedule.Scheduler()
+    scheduler.schedule_jobs(jobs, get_settings())
+    by_kind = {next(iter(job.job_func.args[0])): job.interval for job in jobs.jobs}
+    assert by_kind[Kind.ALERTS] == 20

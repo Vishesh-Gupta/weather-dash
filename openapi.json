@@ -117,6 +117,80 @@
         "title": "AirQualityOut",
         "type": "object"
       },
+      "AlertOut": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "ends_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends At"
+          },
+          "event": {
+            "description": "The alert's name, e.g. \"Severe Thunderstorm Warning\"",
+            "title": "Event",
+            "type": "string"
+          },
+          "sender": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The issuing agency",
+            "title": "Sender"
+          },
+          "starts_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Starts At"
+          },
+          "tags": {
+            "description": "Categories such as Wind or Flood",
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sender",
+          "event",
+          "starts_at",
+          "ends_at",
+          "description",
+          "tags"
+        ],
+        "title": "AlertOut",
+        "type": "object"
+      },
       "CollectRequest": {
         "properties": {
           "location_ids": {
@@ -1317,6 +1391,14 @@
               }
             ]
           },
+          "alerts": {
+            "description": "Weather alerts in force",
+            "items": {
+              "$ref": "#/components/schemas/AlertOut"
+            },
+            "title": "Alerts",
+            "type": "array"
+          },
           "current": {
             "anyOf": [
               {
@@ -1358,13 +1440,19 @@
           "current",
           "air_quality",
           "today",
-          "normal"
+          "normal",
+          "alerts"
         ],
         "title": "OverviewItem",
         "type": "object"
       },
       "SessionOut": {
         "properties": {
+          "alerts_enabled": {
+            "description": "Whether weather alerts are collected (OpenWeather One Call 3.0)",
+            "title": "Alerts Enabled",
+            "type": "boolean"
+          },
           "auth_required": {
             "description": "Whether an admin password is configured",
             "title": "Auth Required",
@@ -1384,7 +1472,8 @@
         "required": [
           "is_admin",
           "auth_required",
-          "can_collect"
+          "can_collect",
+          "alerts_enabled"
         ],
         "title": "SessionOut",
         "type": "object"
@@ -1852,6 +1941,53 @@
           }
         },
         "summary": "Air Quality",
+        "tags": [
+          "locations"
+        ]
+      }
+    },
+    "/api/locations/{location_id}/alerts": {
+      "get": {
+        "description": "Government weather alerts in force (empty unless One Call 3.0 is enabled).",
+        "operationId": "alerts_api_locations__location_id__alerts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "location_id",
+            "required": true,
+            "schema": {
+              "title": "Location Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AlertOut"
+                  },
+                  "title": "Response Alerts Api Locations  Location Id  Alerts Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Alerts",
         "tags": [
           "locations"
         ]

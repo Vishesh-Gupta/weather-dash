@@ -83,6 +83,9 @@ class Location(Base):
     nowcast: Mapped[list["PrecipitationNowcast"]] = relationship(
         back_populates="location", cascade="all, delete-orphan", passive_deletes=True
     )
+    alerts: Mapped[list["WeatherAlert"]] = relationship(
+        back_populates="location", cascade="all, delete-orphan", passive_deletes=True
+    )
 
     @property
     def display_name(self) -> str:
@@ -265,6 +268,32 @@ class PrecipitationNowcast(Base):
     snowfall: Mapped[float | None]
 
     location: Mapped[Location] = relationship(back_populates="nowcast")
+
+
+class WeatherAlert(Base):
+    """A government weather alert in force for a location (OpenWeather One Call 3.0).
+
+    Each collection replaces the location's alerts with the ones currently issued.
+    """
+
+    __tablename__ = "weather_alerts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    location_id: Mapped[int] = mapped_column(
+        ForeignKey("locations.id", ondelete="CASCADE"), index=True
+    )
+    collected_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    # The issuing agency, e.g. "NWS Philadelphia - Mount Holly".
+    sender: Mapped[str | None] = mapped_column(String(200))
+    # The alert's name, e.g. "Severe Thunderstorm Warning".
+    event: Mapped[str] = mapped_column(String(200))
+    starts_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    ends_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    description: Mapped[str | None] = mapped_column(Text)
+    # Comma-separated categories, e.g. "Wind,Flood".
+    tags: Mapped[str | None] = mapped_column(String(200))
+
+    location: Mapped[Location] = relationship(back_populates="alerts")
 
 
 class CollectionRun(Base):

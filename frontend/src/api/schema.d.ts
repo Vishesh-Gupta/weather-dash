@@ -157,6 +157,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/locations/{location_id}/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Alerts
+         * @description Government weather alerts in force (empty unless One Call 3.0 is enabled).
+         */
+        get: operations["alerts_api_locations__location_id__alerts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/locations/{location_id}/current": {
         parameters: {
             query?: never;
@@ -343,6 +363,30 @@ export interface components {
             pm2_5: number | null;
             /** So2 */
             so2: number | null;
+        };
+        /** AlertOut */
+        AlertOut: {
+            /** Description */
+            description: string | null;
+            /** Ends At */
+            ends_at: string | null;
+            /**
+             * Event
+             * @description The alert's name, e.g. "Severe Thunderstorm Warning"
+             */
+            event: string;
+            /**
+             * Sender
+             * @description The issuing agency
+             */
+            sender: string | null;
+            /** Starts At */
+            starts_at: string | null;
+            /**
+             * Tags
+             * @description Categories such as Wind or Flood
+             */
+            tags: string[];
         };
         /** CollectRequest */
         CollectRequest: {
@@ -671,6 +715,11 @@ export interface components {
         /** OverviewItem */
         OverviewItem: {
             air_quality: components["schemas"]["AirQualityOut"] | null;
+            /**
+             * Alerts
+             * @description Weather alerts in force
+             */
+            alerts: components["schemas"]["AlertOut"][];
             current: components["schemas"]["ObservationOut"] | null;
             location: components["schemas"]["LocationOut"];
             /** @description Normal for the location's current day */
@@ -680,6 +729,11 @@ export interface components {
         };
         /** SessionOut */
         SessionOut: {
+            /**
+             * Alerts Enabled
+             * @description Whether weather alerts are collected (OpenWeather One Call 3.0)
+             */
+            alerts_enabled: boolean;
             /**
              * Auth Required
              * @description Whether an admin password is configured
@@ -990,6 +1044,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AirQualityOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    alerts_api_locations__location_id__alerts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                location_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertOut"][];
                 };
             };
             /** @description Validation Error */
