@@ -34,6 +34,7 @@ export const defaultRoutes = (): Routes => ({
   ),
   'GET /api/locations/1/forecast': forecast,
   'GET /api/locations/1/hourly': hourly,
+  'GET /api/locations/1/alerts': [],
   'GET /api/locations/1/air-quality': airQuality,
   'GET /api/locations/1/history': history,
   'GET /api/collection-runs/latest': {

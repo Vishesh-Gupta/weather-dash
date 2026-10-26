@@ -4,11 +4,13 @@ from typing import Annotated
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 
+from src.api.alerts import active_alerts
 from src.api.collection import start_collection
 from src.api.deps import AdminOnly, DbSession, NeedsApiKey
 from src.api.history import location_today, normals
 from src.api.schemas import (
     AirQualityOut,
+    AlertOut,
     DailyHistoryOut,
     ForecastOut,
     HourlyOut,
@@ -111,6 +113,13 @@ def hourly(location_id: int, db: DbSession):
         .order_by(PrecipitationNowcast.forecast_for)
     ).all()
     return HourlyOut(issued_at=hours[0].issued_at if hours else None, hours=hours, nowcast=nowcast)
+
+
+@router.get("/{location_id}/alerts", response_model=list[AlertOut])
+def alerts(location_id: int, db: DbSession):
+    """Government weather alerts in force (empty unless One Call 3.0 is enabled)."""
+    get_location_or_404(db, location_id)
+    return active_alerts(db, location_id)
 
 
 @router.get("/{location_id}/air-quality", response_model=list[AirQualityOut])

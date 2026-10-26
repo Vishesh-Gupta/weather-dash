@@ -112,12 +112,31 @@ Set these in `.env` (see [`.env.example`](.env.example)):
 | `AIR_QUALITY_INTERVAL_MINUTES` | `30` | How often to collect air quality |
 | `FORECAST_INTERVAL_MINUTES` | `60` | How often to collect the 5-day forecast |
 | `HOURLY_INTERVAL_MINUTES` | `15` | How often to collect the hourly forecast and rain nowcast (Open-Meteo, no key) |
+| `ONE_CALL_ENABLED` | `false` | Collect government weather alerts (needs One Call API 3.0; see below) |
+| `ONE_CALL_API_KEY` | `WEATHER_API_KEY` | Key for One Call, if it differs from the main one |
+| `ALERTS_INTERVAL_MINUTES` | `15` | How often to check for alerts |
 | `APP_PORT` | `8000` | Host port for the web app |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `weather_*` | Database credentials |
 | `DATABASE_URL` | | Full SQLAlchemy URL; overrides the `POSTGRES_*` values |
 
 `config.yaml` holds tuning such as the OpenWeather request delay and how many years of history to
 backfill.
+
+### Weather alerts
+
+Alerts (warnings, watches and advisories from national weather services) come from
+OpenWeather's One Call API 3.0, a separate subscription from the free API the rest of the app
+uses. To turn them on:
+
+1. On [openweathermap.org](https://openweathermap.org/api/one-call-3), subscribe to
+   "One Call by Call". The first 1,000 calls a day are free; set a daily limit in your
+   account so you are never billed.
+2. Set `ONE_CALL_ENABLED=true` (and `ONE_CALL_API_KEY` if you use a different key).
+
+Each tracked location costs one call per `ALERTS_INTERVAL_MINUTES`: 5 locations every
+15 minutes is 480 calls a day. Alerts appear above the conditions on a location's page, with
+their full text, and as a chip on its overview card. If the subscription isn't active, the
+collection run reports it, and everything else keeps working.
 
 ### Hosting publicly
 
@@ -171,7 +190,8 @@ sets an HTTP-only, `SameSite=Strict` session cookie. Failed sign-ins are rate li
 
 ## Data sources
 
-- Current weather, forecasts, air quality and geocoding: [OpenWeather](https://openweathermap.org/)
+- Current weather, forecasts, air quality, geocoding and (optionally) alerts:
+  [OpenWeather](https://openweathermap.org/)
 - Hourly forecast, UV, 15-minute rain nowcast and historical daily weather:
   [Open-Meteo](https://open-meteo.com/) (CC BY 4.0)
 

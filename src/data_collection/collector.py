@@ -18,6 +18,7 @@ from src.database.models import (
     HourlyForecast,
     Location,
     PrecipitationNowcast,
+    WeatherAlert,
     WeatherObservation,
 )
 from src.database.session import session_scope
@@ -40,6 +41,8 @@ class Kind(StrEnum):
     AIR_QUALITY = "air_quality"
     # Hourly forecast and rain nowcast, from Open-Meteo rather than OpenWeather.
     HOURLY = "hourly"
+    # Weather alerts, from OpenWeather's One Call API 3.0 (only when enabled).
+    ALERTS = "alerts"
 
 
 ALL_KINDS = frozenset(Kind)
@@ -99,6 +102,20 @@ def collect_hourly(
                 [{**row, "location_id": location.id, "issued_at": issued_at} for row in rows],
             )
     return len(hours)
+
+
+def collect_alerts(
+    session: Session, client: OpenWeatherClient, location: Location, collected_at: datetime
+) -> int:
+    """Replace the location's alerts with those currently in force."""
+    alerts = client.alerts(location.lat, location.lon)
+    session.execute(delete(WeatherAlert).where(WeatherAlert.location_id == location.id))
+    if alerts:
+        session.execute(
+            WeatherAlert.__table__.insert(),
+            [{**a, "location_id": location.id, "collected_at": collected_at} for a in alerts],
+        )
+    return len(alerts)
 
 
 COLLECTORS = {
@@ -180,8 +197,10 @@ def run_collection(
     """
     settings = get_settings()
     now = now or datetime.now(UTC)
+    if not settings.one_call_enabled:
+        kinds = kinds - {Kind.ALERTS}
     # Open-Meteo needs no key, so runs for its data alone work without one.
-    if weather_client is None and kinds & OPENWEATHER_KINDS:
+    if weather_client is None and kinds & (OPENWEATHER_KINDS | {Kind.ALERTS}):
         weather_client = OpenWeatherClient(settings)
     open_meteo_client = open_meteo_client or OpenMeteoClient(settings)
 
@@ -226,6 +245,18 @@ def run_collection(
                 failed += 1
                 logger.exception("Hourly forecast failed for location %s", location_id)
                 errors.append(f"location {location_id} hourly: {exc}")
+        if Kind.ALERTS in kinds:
+            # A separate subscription, so its failures (say, not yet enabled) stay its own.
+            attempted += 1
+            try:
+                with session_scope() as session:
+                    location = session.get(Location, location_id)
+                    alerts = collect_alerts(session, weather_client, location, now)
+                    logger.info("Alerts for %s: %s", location.display_name, alerts)
+            except Exception as exc:
+                failed += 1
+                logger.exception("Alerts failed for location %s", location_id)
+                errors.append(f"location {location_id} alerts: {exc}")
         processed += failed < attempted or attempted == 0
         try:
             with session_scope() as session:

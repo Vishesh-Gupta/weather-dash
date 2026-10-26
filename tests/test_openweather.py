@@ -10,6 +10,7 @@ from src.data_collection.openweather import (
     OpenWeatherClient,
     OpenWeatherError,
     parse_air_quality,
+    parse_alerts,
     parse_current,
     parse_forecast,
 )
@@ -138,3 +139,43 @@ def test_connection_errors_never_reveal_the_key(client):
         client.current(1, 2)
     assert "test-key" not in str(caught.value)
     assert "ConnectionError" in str(caught.value)
+
+
+def test_parse_alerts():
+    alerts = parse_alerts(load_fixture("one_call_alerts.json"))
+    assert [a["event"] for a in alerts] == ["Wind Warning", "Special Weather Statement"]
+    wind = alerts[0]
+    assert wind["sender"] == "Environment and Climate Change Canada"
+    assert wind["starts_at"] == datetime(2025, 10, 21, 14, tzinfo=UTC)
+    assert wind["ends_at"] == datetime(2025, 10, 22, 3, tzinfo=UTC)
+    assert wind["tags"] == "Wind"
+    assert alerts[1]["tags"] is None
+    # No "alerts" key means none are in force.
+    assert parse_alerts({"lat": 1, "lon": 2}) == []
+
+
+@responses.activate
+def test_alerts_request_uses_one_call(client):
+    responses.get(f"{BASE}/data/3.0/onecall", json=load_fixture("one_call_alerts.json"))
+    assert len(client.alerts(43.65, -79.38)) == 2
+    params = responses.calls[0].request.params
+    assert params["exclude"] == "current,minutely,hourly,daily"
+    assert params["appid"] == "test-key"
+
+
+@responses.activate
+def test_alerts_without_subscription_say_so(client):
+    responses.get(f"{BASE}/data/3.0/onecall", status=401, json={"cod": 401})
+    with pytest.raises(OpenWeatherError, match="One Call API 3.0 isn't enabled"):
+        client.alerts(0, 0)
+
+
+@responses.activate
+def test_alerts_can_use_their_own_key(monkeypatch):
+    monkeypatch.setenv("WEATHER_API_KEY", "main-key")
+    monkeypatch.setenv("ONE_CALL_API_KEY", "one-call-key")
+    get_settings.cache_clear()
+    responses.get(f"{BASE}/data/3.0/onecall", json={})
+    client = OpenWeatherClient(session=build_session(backoff_factor=0), rate_limiter=RateLimiter(0))
+    assert client.alerts(1, 2) == []
+    assert responses.calls[0].request.params["appid"] == "one-call-key"

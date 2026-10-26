@@ -1,4 +1,5 @@
 import type {
+  Alert,
   AirQuality,
   DailyHistory,
   Forecast,
@@ -130,8 +131,18 @@ export const history: DailyHistory[] = Array.from({ length: 400 }, (_, i) => {
   }
 })
 
-export const visitorSession: Session = { is_admin: false, auth_required: true, can_collect: true }
-export const adminSession: Session = { is_admin: true, auth_required: true, can_collect: true }
+export const visitorSession: Session = {
+  is_admin: false,
+  auth_required: true,
+  can_collect: true,
+  alerts_enabled: true,
+}
+export const adminSession: Session = {
+  is_admin: true,
+  auth_required: true,
+  can_collect: true,
+  alerts_enabled: true,
+}
 
 export const overviewItem = (current: Observation | null = observation()): OverviewItem => ({
   location: toronto,
@@ -139,4 +150,15 @@ export const overviewItem = (current: Observation | null = observation()): Overv
   air_quality: airQuality.at(-1) ?? null,
   today: { high: 19, low: 8 },
   normal: null,
+  alerts: [],
 })
+
+export const windWarning: Alert = {
+  sender: 'Environment and Climate Change Canada',
+  event: 'Wind Warning',
+  starts_at: hour(0),
+  // 23:00 local.
+  ends_at: hour(13),
+  description: 'Strong winds that may cause damage are expected.\nGusts of 90 km/h.',
+  tags: ['Wind'],
+}
