@@ -9,6 +9,8 @@ from src.database.models import (
     CollectionRun,
     DailyHistory,
     ForecastEntry,
+    HourlyForecast,
+    PrecipitationNowcast,
     WeatherObservation,
 )
 from src.database.session import session_scope
@@ -89,6 +91,47 @@ def seed(now: datetime | None = None, history_days: int = 730) -> int:
                     weather_main="Rain" if rainy else "Clouds",
                     weather_description="light rain" if rainy else "scattered clouds",
                     weather_icon="10d",
+                )
+            )
+
+        hour = now.replace(minute=0, second=0, microsecond=0)
+        for i in range(48):
+            t = hour + timedelta(hours=i)
+            local = (t.hour - 4) % 24
+            daylight = 7 <= local < 18
+            showery = 2 <= i <= 4
+            session.add(
+                HourlyForecast(
+                    location_id=loc.id,
+                    issued_at=now,
+                    forecast_for=t,
+                    temp=11 + 6 * math.sin((local - 9) / 24 * 2 * math.pi),
+                    feels_like=9 + 6 * math.sin((local - 9) / 24 * 2 * math.pi),
+                    humidity=65,
+                    pop=0.7 if showery else 0.05,
+                    precipitation=0.8 if showery else 0.0,
+                    rain=0.8 if showery else 0.0,
+                    snowfall=0.0,
+                    weather_code=61 if showery else (1 if daylight else 0),
+                    clouds=85 if showery else 20,
+                    wind_speed=4.5,
+                    wind_deg=230,
+                    wind_gust=9.0,
+                    uv_index=round(3.4 * math.sin((local - 7) / 11 * math.pi), 1)
+                    if daylight
+                    else 0,
+                    is_day=daylight,
+                )
+            )
+        quarter = now.replace(minute=now.minute - now.minute % 15, second=0, microsecond=0)
+        for i in range(8):
+            session.add(
+                PrecipitationNowcast(
+                    location_id=loc.id,
+                    issued_at=now,
+                    forecast_for=quarter + timedelta(minutes=15 * i),
+                    precipitation=[0, 0, 0, 0.05, 0.2, 0.3, 0.2, 0.1][i],
+                    snowfall=0.0,
                 )
             )
 

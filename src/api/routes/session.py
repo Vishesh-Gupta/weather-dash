@@ -11,6 +11,7 @@ def _session_out(request: Request, settings) -> SessionOut:
         is_admin=is_admin(request, settings),
         auth_required=bool(settings.admin_password),
         can_collect=bool(settings.api_key),
+        alerts_enabled=settings.one_call_enabled,
     )
 
 

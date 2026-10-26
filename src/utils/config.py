@@ -31,6 +31,15 @@ class Settings:
     air_quality_interval_minutes: int
     forecast_interval_minutes: int
     database_url: str
+    open_meteo_forecast_url: str = "https://api.open-meteo.com/v1/forecast"
+    # The hourly forecast and 15-minute rain nowcast (Open-Meteo, no key needed).
+    hourly_interval_minutes: int = 15
+    # Weather alerts from OpenWeather's One Call API 3.0, a separate subscription
+    # ("One Call by Call", 1,000 free calls a day). Off until it is set up.
+    one_call_enabled: bool = False
+    # Key for One Call when it differs from WEATHER_API_KEY.
+    one_call_api_key: str | None = None
+    alerts_interval_minutes: int = 15
     # When set, the dashboard is read-only until an admin signs in.
     admin_password: str | None = None
     # Signs session cookies. Random per process when unset (sessions end on restart).
@@ -94,6 +103,9 @@ def get_settings() -> Settings:
         open_meteo_archive_url=open_meteo.get(
             "archive_url", "https://archive-api.open-meteo.com/v1/archive"
         ),
+        open_meteo_forecast_url=open_meteo.get(
+            "forecast_url", "https://api.open-meteo.com/v1/forecast"
+        ),
         backfill_years=int(open_meteo.get("backfill_years", 5)),
         current_interval_minutes=_interval(
             "CURRENT_INTERVAL_MINUTES", scheduler, "current_minutes", 5
@@ -103,6 +115,17 @@ def get_settings() -> Settings:
         ),
         forecast_interval_minutes=_interval(
             "FORECAST_INTERVAL_MINUTES", scheduler, "forecast_minutes", 60
+        ),
+        hourly_interval_minutes=_interval(
+            "HOURLY_INTERVAL_MINUTES", scheduler, "hourly_minutes", 15
+        ),
+        one_call_enabled=os.getenv(
+            "ONE_CALL_ENABLED", str(openweather.get("one_call_enabled", False))
+        ).lower()
+        in {"1", "true", "yes"},
+        one_call_api_key=os.getenv("ONE_CALL_API_KEY") or None,
+        alerts_interval_minutes=_interval(
+            "ALERTS_INTERVAL_MINUTES", scheduler, "alerts_minutes", 15
         ),
         database_url=build_database_url(config.get("database", {})),
         admin_password=os.getenv("ADMIN_PASSWORD") or None,

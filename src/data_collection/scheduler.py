@@ -34,11 +34,15 @@ def collect_once(kinds: frozenset[Kind] = ALL_KINDS) -> None:
 
 
 def intervals(settings: Settings) -> dict[Kind, int]:
-    return {
+    every = {
         Kind.CURRENT: settings.current_interval_minutes,
         Kind.AIR_QUALITY: settings.air_quality_interval_minutes,
         Kind.FORECAST: settings.forecast_interval_minutes,
+        Kind.HOURLY: settings.hourly_interval_minutes,
     }
+    if settings.one_call_enabled:
+        every[Kind.ALERTS] = settings.alerts_interval_minutes
+    return every
 
 
 def schedule_jobs(scheduler: schedule.Scheduler, settings: Settings) -> None:

@@ -120,6 +120,60 @@ def test_forecast(client):
     assert times == sorted(times)
 
 
+def test_hourly(client):
+    location_id = seed()
+    body = client.get(f"/api/locations/{location_id}/hourly").json()
+    assert len(body["hours"]) == 48
+    assert len(body["nowcast"]) == 8
+    assert body["issued_at"] is not None
+    first = body["hours"][0]
+    assert {"uv_index", "pop", "weather_code", "is_day", "wind_gust"} <= first.keys()
+    times = [h["forecast_for"] for h in body["hours"]]
+    assert times == sorted(times)
+
+
+def test_hourly_before_any_collection(client):
+    from src.database import repository
+    from src.database.session import session_scope
+
+    with session_scope() as session:
+        loc = repository.add_location(session, name="Lima", country="PE", lat=-12.05, lon=-77.04)
+        location_id = loc.id
+    body = client.get(f"/api/locations/{location_id}/hourly").json()
+    assert body == {"issued_at": None, "hours": [], "nowcast": []}
+    assert client.get("/api/locations/999/hourly").status_code == 404
+
+
+def test_alerts_in_force(client):
+    from src.database.models import WeatherAlert
+    from src.database.session import session_scope
+
+    location_id = seed()
+    now = datetime.now(UTC)
+    with session_scope() as session:
+        for event, ends in [
+            ("Wind Warning", now + timedelta(hours=6)),
+            ("Fog Advisory", now - timedelta(hours=1)),
+        ]:
+            session.add(
+                WeatherAlert(
+                    location_id=location_id,
+                    collected_at=now,
+                    sender="Environment Canada",
+                    event=event,
+                    starts_at=now - timedelta(hours=2),
+                    ends_at=ends,
+                    description="Gusts to 90 km/h.",
+                    tags="Wind",
+                )
+            )
+    [alert] = client.get(f"/api/locations/{location_id}/alerts").json()
+    assert alert["event"] == "Wind Warning"
+    assert alert["tags"] == ["Wind"]
+    [item] = client.get("/api/overview").json()
+    assert [a["event"] for a in item["alerts"]] == ["Wind Warning"]
+
+
 def test_air_quality(client):
     location_id = seed()
     readings = client.get(f"/api/locations/{location_id}/air-quality?days=7").json()
@@ -163,6 +217,7 @@ def test_local_mode_everyone_is_admin(client):
         "is_admin": True,
         "auth_required": False,
         "can_collect": True,
+        "alerts_enabled": False,
     }
 
 
@@ -171,6 +226,7 @@ def test_public_mode_visitor_session(public_client):
         "is_admin": False,
         "auth_required": True,
         "can_collect": True,
+        "alerts_enabled": False,
     }
 
 

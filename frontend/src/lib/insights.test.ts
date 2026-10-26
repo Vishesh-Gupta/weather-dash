@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { forecast, observation } from '../test/fixtures'
+import { forecast, hourly, observation, toronto } from '../test/fixtures'
 import {
   STALE_FORECAST_MS,
   STALE_READING_MS,
@@ -9,9 +9,12 @@ import {
   dewPoint,
   humidityFeel,
   isStale,
+  nextHourRain,
   precipitationAhead,
   pressureTrend,
   versusNormal,
+  uvLevel,
+  uvOutlook,
   visibilityLabel,
 } from './insights'
 
@@ -123,5 +126,92 @@ describe('isStale', () => {
 
   it('treats a missing time as not stale', () => {
     expect(isStale(null, now, STALE_READING_MS)).toBe(false)
+  })
+})
+
+describe('uvLevel', () => {
+  it('uses the WHO categories on the rounded index', () => {
+    expect(uvLevel(2.4).label).toBe('Low')
+    expect(uvLevel(2.6).label).toBe('Moderate')
+    expect(uvLevel(6).label).toBe('High')
+    expect(uvLevel(9).label).toBe('Very high')
+    expect(uvLevel(11.2).label).toBe('Extreme')
+  })
+})
+
+describe('uvOutlook', () => {
+  const at = (iso: string) => Date.parse(iso)
+  const offset = toronto.utc_offset_seconds
+
+  it('gives the peak still to come today', () => {
+    // 10:30 local: UV 2.6, peaking at 3.4 around noon.
+    expect(uvOutlook(hourly.hours, at('2026-10-21T14:30:00Z'), offset)).toEqual({
+      now: 2.6,
+      peak: { uv: 3.4, at: hourly.hours[2]!.forecast_for, tomorrow: false },
+    })
+  })
+
+  it('says nothing more once the peak has passed', () => {
+    expect(uvOutlook(hourly.hours, at('2026-10-21T21:30:00Z'), offset)).toEqual({
+      now: 1,
+      peak: null,
+    })
+  })
+
+  it("looks ahead to tomorrow's peak after dark", () => {
+    const outlook = uvOutlook(hourly.hours, at('2026-10-21T23:30:00Z'), offset)
+    expect(outlook?.now).toBe(0)
+    expect(outlook?.peak).toEqual({ uv: 3.4, at: hourly.hours[26]!.forecast_for, tomorrow: true })
+  })
+
+  it('needs the current hour', () => {
+    expect(uvOutlook(hourly.hours, at('2026-10-30T12:00:00Z'), offset)).toBeNull()
+  })
+})
+
+describe('nextHourRain', () => {
+  const at = (iso: string) => Date.parse(iso)
+  const quarters = (mm: number[], snow = 0) =>
+    mm.map((precipitation, i) => ({
+      forecast_for: new Date(at('2026-10-21T14:30:00Z') + i * 900_000).toISOString(),
+      precipitation,
+      snowfall: precipitation ? snow : 0,
+    }))
+
+  it('says when rain will start', () => {
+    const rain = nextHourRain(hourly.nowcast, at('2026-10-21T14:35:00Z'))
+    expect(rain?.summary).toEqual({
+      state: 'starting',
+      at: '2026-10-21T15:45:00.000Z',
+      kind: 'rain',
+    })
+    // 0.3 mm in 15 minutes is 1.2 mm/h.
+    expect(rain?.slots[6]!.rate).toBeCloseTo(1.2)
+  })
+
+  it('says when rain will stop, or that it will keep on', () => {
+    expect(
+      nextHourRain(quarters([0.2, 0.2, 0.1, 0, 0, 0, 0, 0]), at('2026-10-21T14:31:00Z'))?.summary,
+    ).toEqual({
+      state: 'ongoing',
+      until: '2026-10-21T15:15:00.000Z',
+      kind: 'rain',
+    })
+    expect(
+      nextHourRain(quarters(Array(8).fill(0.2), 0.3), at('2026-10-21T14:31:00Z'))?.summary,
+    ).toEqual({
+      state: 'ongoing',
+      until: null,
+      kind: 'snow',
+    })
+  })
+
+  it('ignores traces and stale nowcasts', () => {
+    expect(
+      nextHourRain(quarters([0, 0.01, 0, 0, 0, 0, 0, 0]), at('2026-10-21T14:31:00Z'))?.summary,
+    ).toEqual({
+      state: 'dry',
+    })
+    expect(nextHourRain(hourly.nowcast, at('2026-10-21T16:00:00Z'))).toBeNull()
   })
 })

@@ -23,6 +23,7 @@ const dayMonth = formatter({ day: 'numeric', month: 'short' })
 const dayMonthYear = formatter({ day: 'numeric', month: 'short', year: 'numeric' })
 const weekdayDayMonth = formatter({ weekday: 'short', day: 'numeric', month: 'short' })
 const monthYear = formatter({ month: 'short', year: 'numeric' })
+const weekday = formatter({ weekday: 'short' })
 
 export const formatDayTime = (d: Date) => dayTime.format(d)
 export const formatTime = (d: Date) => time.format(d)
@@ -30,6 +31,7 @@ export const formatDayMonth = (d: Date) => dayMonth.format(d)
 export const formatDate = (d: Date) => dayMonthYear.format(d)
 export const formatWeekday = (d: Date) => weekdayDayMonth.format(d)
 export const formatMonthYear = (d: Date) => monthYear.format(d)
+export const formatDayName = (d: Date) => weekday.format(d)
 
 /** Calendar date (YYYY-MM-DD) as a Date at UTC midnight, formatted with the helpers above. */
 export const parseDate = (isoDate: string) => new Date(`${isoDate}T00:00:00Z`)

@@ -1,23 +1,36 @@
 import { Link } from '@tanstack/react-router'
 
-import type { AirQuality, ForecastEntry, Observation, OverviewItem } from '../api/client'
+import type {
+  AirQuality,
+  ForecastEntry,
+  HourlyEntry,
+  NowcastEntry,
+  Observation,
+  OverviewItem,
+} from '../api/client'
 import { aqiLevel } from '../lib/aqi'
 import {
   beaufort,
   cloudLabel,
   dewPoint,
   humidityFeel,
+  nextHourRain,
   precipitationAhead,
   pressureTrend,
+  uvLevel,
+  uvOutlook,
   versusNormal,
   visibilityLabel,
 } from '../lib/insights'
 import { skyFor } from '../lib/sky'
 import { formatTime, toLocationTime } from '../lib/time'
 import { compass, type Units } from '../lib/units'
-import { Instrument, Meter, Sparkline, WindDial } from './Instrument'
+import { Instrument, Meter, RainBars, Sparkline, WindDial } from './Instrument'
 
 const dash = '–'
+// Rounded up to 5 minutes: the nowcast's steps are 15 minutes, so it can't be more precise.
+const minutesUntil = (iso: string, nowMs: number) =>
+  Math.max(5, Math.ceil((Date.parse(iso) - nowMs) / 300_000) * 5)
 const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${Math.abs(n)}`
 
 interface ConditionsProps {
@@ -26,6 +39,9 @@ interface ConditionsProps {
   /** The last 24 hours of readings, oldest first. */
   recent: readonly Observation[]
   forecast: readonly ForecastEntry[]
+  /** Open-Meteo's hourly forecast and 15-minute rain nowcast (empty when unavailable). */
+  hours: readonly HourlyEntry[]
+  nowcast: readonly NowcastEntry[]
   air: AirQuality | null
   today: { high: number; low: number } | null
   normal: OverviewItem['normal']
@@ -40,6 +56,8 @@ export function Conditions({
   obs,
   recent,
   forecast,
+  hours,
+  nowcast,
   air,
   today,
   normal,
@@ -62,6 +80,10 @@ export function Conditions({
   const falling = amountNow > 0 || snowing || ['drizzle', 'rain', 'thunder'].includes(condition)
   const versus = versusNormal(today?.high, normal?.temp_max)
   const aqi = air ? aqiLevel(air.aqi) : null
+  const soon = nextHourRain(nowcast, nowMs)
+  const starting = !falling && soon?.summary.state === 'starting' ? soon.summary : null
+  const uv = uvOutlook(hours, nowMs, offset)
+  const uvLevelNow = uv ? uvLevel(uv.now) : null
   // A millimetre is 0.04 in, so inches need another decimal place.
   const digits = units.system === 'metric' ? 1 : 2
 
@@ -133,16 +155,36 @@ export function Conditions({
             ? units.precip(amountNow).toFixed(digits)
             : falling
               ? 'Now'
-              : ahead
-                ? String(Math.round(ahead.chance * 100))
-                : dash
+              : starting
+                ? String(minutesUntil(starting.at, nowMs))
+                : ahead
+                  ? String(Math.round(ahead.chance * 100))
+                  : dash
         }
-        unit={amountNow > 0 ? `${units.precipLabel}/h` : !falling && ahead ? '%' : undefined}
+        unit={
+          amountNow > 0
+            ? `${units.precipLabel}/h`
+            : !falling && starting
+              ? 'min'
+              : !falling && ahead
+                ? '%'
+                : undefined
+        }
         detail={
           falling ? (
             <>
               {snowing ? 'Snowing now' : 'Raining now'}
-              {ahead ? ` · ${Math.round(ahead.chance * 100)}% chance in the next 6 h` : ''}
+              {soon?.summary.state === 'ongoing'
+                ? soon.summary.until
+                  ? ` · stopping around ${time(soon.summary.until)}`
+                  : ' · for the next 2 hours at least'
+                : ahead
+                  ? ` · ${Math.round(ahead.chance * 100)}% chance in the next 6 h`
+                  : ''}
+            </>
+          ) : starting ? (
+            <>
+              {starting.kind === 'snow' ? 'Snow' : 'Rain'} starting around {time(starting.at)}
             </>
           ) : ahead?.at && ahead.kind ? (
             <>
@@ -153,12 +195,43 @@ export function Conditions({
             </>
           ) : ahead ? (
             'Dry for the next 6 hours'
+          ) : soon ? (
+            'Dry for the next 2 hours'
           ) : (
             'No forecast for the next few hours'
           )
         }
       >
-        {ahead ? <Meter value={ahead.chance} label="Chance of precipitation" /> : null}
+        {soon ? (
+          <RainBars slots={soon.slots} />
+        ) : ahead ? (
+          <Meter value={ahead.chance} label="Chance of precipitation" />
+        ) : null}
+      </Instrument>
+
+      <Instrument
+        label="UV index"
+        value={uv ? String(Math.round(uv.now)) : dash}
+        detail={
+          uv && uvLevelNow ? (
+            <>
+              <span className={`status-dot status-dot-${uvLevelNow.role}`} aria-hidden="true" />
+              {uvLevelNow.label} · {uvLevelNow.advice}
+              {uv.peak ? (
+                <div>
+                  {uv.peak.tomorrow ? 'Tomorrow peaks at' : 'Peaks at'} {Math.round(uv.peak.uv)}{' '}
+                  around {time(uv.peak.at)}
+                </div>
+              ) : uv.now >= 1 ? (
+                <div>Past today&apos;s peak</div>
+              ) : null}
+            </>
+          ) : (
+            'Appears with the hourly forecast'
+          )
+        }
+      >
+        {uv ? <Meter value={uv.now / 11} label="UV index on a scale to 11" /> : null}
       </Instrument>
 
       <Instrument

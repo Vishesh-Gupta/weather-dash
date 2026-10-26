@@ -4,13 +4,16 @@ from typing import Annotated
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 
+from src.api.alerts import active_alerts
 from src.api.collection import start_collection
 from src.api.deps import AdminOnly, DbSession, NeedsApiKey
 from src.api.history import location_today, normals
 from src.api.schemas import (
     AirQualityOut,
+    AlertOut,
     DailyHistoryOut,
     ForecastOut,
+    HourlyOut,
     LocationCreate,
     LocationOut,
     NormalOut,
@@ -21,7 +24,9 @@ from src.database.models import (
     AirQualityReading,
     DailyHistory,
     ForecastEntry,
+    HourlyForecast,
     Location,
+    PrecipitationNowcast,
     WeatherObservation,
 )
 
@@ -90,6 +95,31 @@ def forecast(location_id: int, db: DbSession):
             .order_by(ForecastEntry.forecast_for)
         ).all()
     return ForecastOut(issued_at=issued_at, entries=entries)
+
+
+@router.get("/{location_id}/hourly", response_model=HourlyOut)
+def hourly(location_id: int, db: DbSession):
+    """The next 48 hours hour by hour, and precipitation for the next two hours in
+    15-minute steps (Open-Meteo)."""
+    get_location_or_404(db, location_id)
+    hours = db.scalars(
+        select(HourlyForecast)
+        .where(HourlyForecast.location_id == location_id)
+        .order_by(HourlyForecast.forecast_for)
+    ).all()
+    nowcast = db.scalars(
+        select(PrecipitationNowcast)
+        .where(PrecipitationNowcast.location_id == location_id)
+        .order_by(PrecipitationNowcast.forecast_for)
+    ).all()
+    return HourlyOut(issued_at=hours[0].issued_at if hours else None, hours=hours, nowcast=nowcast)
+
+
+@router.get("/{location_id}/alerts", response_model=list[AlertOut])
+def alerts(location_id: int, db: DbSession):
+    """Government weather alerts in force (empty unless One Call 3.0 is enabled)."""
+    get_location_or_404(db, location_id)
+    return active_alerts(db, location_id)
 
 
 @router.get("/{location_id}/air-quality", response_model=list[AirQualityOut])

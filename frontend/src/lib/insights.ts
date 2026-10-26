@@ -1,7 +1,7 @@
 // What the readings mean: raw values turned into the words and comparisons people
 // use, each from a standard definition.
 
-import type { ForecastEntry, Observation } from '../api/client'
+import type { ForecastEntry, HourlyEntry, NowcastEntry, Observation } from '../api/client'
 
 /** Beaufort scale: upper bound of each force in m/s, and its name. */
 const BEAUFORT: readonly [number, string][] = [
@@ -163,7 +163,109 @@ export function versusNormal(
 export const STALE_READING_MS = 3 * HOUR_MS
 /** A forecast issued longer ago than this is no longer a forecast worth showing. */
 export const STALE_FORECAST_MS = 24 * HOUR_MS
+export const STALE_HOURLY_MS = 6 * HOUR_MS
+/** The nowcast covers only two hours, so it must be recent to say anything. */
+export const STALE_NOWCAST_MS = HOUR_MS
 
 /** Whether a timestamp is too old to present as current, given the time now. */
 export const isStale = (iso: string | null | undefined, nowMs: number, limitMs: number) =>
   iso != null && nowMs - Date.parse(iso) > limitMs
+
+/** UV index category on the WHO scale, with what to do about it. */
+export function uvLevel(uv: number): {
+  label: string
+  advice: string
+  role: 'good' | 'warning' | 'serious' | 'critical'
+} {
+  // The WHO categories apply to the rounded index.
+  const index = Math.round(uv)
+  if (index <= 2) return { label: 'Low', advice: 'No protection needed', role: 'good' }
+  if (index <= 5) return { label: 'Moderate', advice: 'Sunscreen at midday', role: 'warning' }
+  if (index <= 7)
+    return { label: 'High', advice: 'Cover up, seek shade at midday', role: 'serious' }
+  if (index <= 10) return { label: 'Very high', advice: 'Avoid the midday sun', role: 'critical' }
+  return { label: 'Extreme', advice: 'Stay out of the midday sun', role: 'critical' }
+}
+
+export interface UvOutlook {
+  /** The index for the current hour. */
+  now: number
+  /**
+   * The highest index still to come today (local time), when it is higher than now;
+   * once the sun is down, tomorrow's. Null while it is falling from today's peak.
+   */
+  peak: { uv: number; at: string; tomorrow: boolean } | null
+}
+
+/** UV now and the peak to come, from the hourly forecast. */
+export function uvOutlook(
+  hours: readonly HourlyEntry[],
+  nowMs: number,
+  offsetSeconds: number | null,
+): UvOutlook | null {
+  const current = hours.find((h) => {
+    const t = Date.parse(h.forecast_for)
+    return t <= nowMs && nowMs < t + HOUR_MS
+  })
+  if (current?.uv_index == null) return null
+  const now = current.uv_index
+  const localDay = (iso: string) =>
+    Math.floor((Date.parse(iso) + (offsetSeconds ?? 0) * 1000) / (24 * HOUR_MS))
+  const today = localDay(current.forecast_for)
+  const highest = (day: number) =>
+    hours
+      .filter(
+        (h) =>
+          localDay(h.forecast_for) === day &&
+          Date.parse(h.forecast_for) >= Date.parse(current.forecast_for),
+      )
+      .reduce<HourlyEntry | null>(
+        (best, h) => ((h.uv_index ?? 0) > (best?.uv_index ?? 0) ? h : best),
+        null,
+      )
+  const later = highest(today)
+  if (later && later.uv_index! > now)
+    return { now, peak: { uv: later.uv_index!, at: later.forecast_for, tomorrow: false } }
+  if (now >= 1) return { now, peak: null }
+  const tomorrow = highest(today + 1)
+  return {
+    now,
+    peak: tomorrow ? { uv: tomorrow.uv_index!, at: tomorrow.forecast_for, tomorrow: true } : null,
+  }
+}
+
+const QUARTER_MS = 15 * 60_000
+/** Less than this (mm per 15 minutes) counts as dry: a trace, not rain. */
+const WET_MM = 0.05
+
+export type NextRain =
+  | { state: 'dry' }
+  | { state: 'starting'; at: string; kind: 'rain' | 'snow' }
+  | { state: 'ongoing'; until: string | null; kind: 'rain' | 'snow' }
+
+export interface NextHourRain {
+  summary: NextRain
+  /** Each 15-minute slot from now: its start and rate in mm/h. */
+  slots: { at: string; rate: number }[]
+}
+
+/** Rain or snow over the next two hours from the 15-minute nowcast. */
+export function nextHourRain(nowcast: readonly NowcastEntry[], nowMs: number): NextHourRain | null {
+  const upcoming = nowcast.filter((q) => Date.parse(q.forecast_for) + QUARTER_MS > nowMs)
+  // A nowcast that no longer covers the next hour says nothing useful.
+  if (upcoming.length < 4) return null
+  const wet = (q: NowcastEntry) => (q.precipitation ?? 0) >= WET_MM
+  const kindOf = (q: NowcastEntry): 'rain' | 'snow' => ((q.snowfall ?? 0) > 0 ? 'snow' : 'rain')
+  const slots = upcoming.map((q) => ({ at: q.forecast_for, rate: (q.precipitation ?? 0) * 4 }))
+  const first = upcoming[0]!
+  if (wet(first)) {
+    const stop = upcoming.find((q) => !wet(q))
+    return {
+      slots,
+      summary: { state: 'ongoing', until: stop?.forecast_for ?? null, kind: kindOf(first) },
+    }
+  }
+  const start = upcoming.find(wet)
+  if (!start) return { slots, summary: { state: 'dry' } }
+  return { slots, summary: { state: 'starting', at: start.forecast_for, kind: kindOf(start) } }
+}
