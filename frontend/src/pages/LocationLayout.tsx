@@ -6,6 +6,7 @@ import { formatUtcOffset } from '../lib/time'
 const TABS = [
   { to: '/locations/$locationId', label: 'Now', exact: true },
   { to: '/locations/$locationId/forecast', label: 'Forecast', exact: false },
+  { to: '/locations/$locationId/radar', label: 'Radar', exact: false },
   { to: '/locations/$locationId/air-quality', label: 'Air quality', exact: false },
   { to: '/locations/$locationId/history', label: 'History', exact: false },
 ] as const

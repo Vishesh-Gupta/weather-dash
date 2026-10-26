@@ -39,6 +39,8 @@ Built to be hosted publicly: visitors browse, and only the admin manages what is
   record. Each shows a 24-hour trend line or meter and highlights briefly when live data changes
   it. Plus an observed temperature trend (24 hours to 30 days)
 - **Forecast**: daily summary table plus 3-hourly temperature, chance of precipitation and rain/snow amounts
+- **Radar**: the past two hours of rain radar around the location, animated, with a time scrubber
+  and a legend, on a dark OpenStreetMap basemap (RainViewer, no key needed)
 - **Air quality**: OpenWeather AQI level, pollutant breakdown and PM2.5/PM10 trend
 - **History**: up to 5 years of daily data backfilled from Open-Meteo, with extremes, monthly
   precipitation, a sortable data table and CSV export
@@ -197,6 +199,11 @@ sets an HTTP-only, `SameSite=Strict` session cookie. Failed sign-ins are rate li
   [OpenWeather](https://openweathermap.org/)
 - Hourly forecast, UV, 15-minute rain nowcast and historical daily weather:
   [Open-Meteo](https://open-meteo.com/) (CC BY 4.0)
+- Rain radar: [RainViewer](https://www.rainviewer.com/api.html) (free API: past two hours, zoom up
+  to 7); map tiles: [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, under the
+  [tile usage policy](https://operations.osmfoundation.org/policies/tiles/), which suits personal
+  and small deployments. A busy public site should switch `BASEMAP_TILES` in
+  `frontend/src/lib/radar.ts` to a commercial tile provider.
 
 ## License
 
