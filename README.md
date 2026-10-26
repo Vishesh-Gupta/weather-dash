@@ -40,6 +40,9 @@ Built to be hosted publicly: visitors browse, and only the admin manages what is
 - **Air quality**: OpenWeather AQI level, pollutant breakdown and PM2.5/PM10 trend
 - **History**: up to 5 years of daily data backfilled from Open-Meteo, with extremes, monthly
   precipitation, a sortable data table and CSV export
+- **Installable**: add it to a phone's home screen or a desktop like an app ("Install app" in
+  Chromium browsers, Share → Add to Home Screen in Safari). It opens offline with the last data
+  the device saw, and says so
 - Times shown in each location's local time; metric or imperial units, remembered per browser
 - **Public mode**: read-only for visitors, password-protected admin for adding/removing locations
   and triggering collection
