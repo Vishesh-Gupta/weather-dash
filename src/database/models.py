@@ -66,16 +66,16 @@ class Location(Base):
     utc_offset_seconds: Mapped[int | None]
 
     observations: Mapped[list["WeatherObservation"]] = relationship(
-        back_populates="location", cascade="all, delete-orphan"
+        back_populates="location", cascade="all, delete-orphan", passive_deletes=True
     )
     forecasts: Mapped[list["ForecastEntry"]] = relationship(
-        back_populates="location", cascade="all, delete-orphan"
+        back_populates="location", cascade="all, delete-orphan", passive_deletes=True
     )
     air_quality: Mapped[list["AirQualityReading"]] = relationship(
-        back_populates="location", cascade="all, delete-orphan"
+        back_populates="location", cascade="all, delete-orphan", passive_deletes=True
     )
     daily_history: Mapped[list["DailyHistory"]] = relationship(
-        back_populates="location", cascade="all, delete-orphan"
+        back_populates="location", cascade="all, delete-orphan", passive_deletes=True
     )
 
     @property

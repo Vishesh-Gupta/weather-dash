@@ -138,7 +138,9 @@ class OpenWeatherClient:
                 timeout=self.settings.timeout_seconds,
             )
         except requests.RequestException as exc:
-            raise OpenWeatherError(f"Request to {path} failed: {exc}") from exc
+            # Only the error's kind: its text includes the URL, and with it the API key,
+            # and collection errors are shown on the dashboard.
+            raise OpenWeatherError(f"Request to {path} failed: {type(exc).__name__}") from exc
 
         if response.status_code == 401:
             raise OpenWeatherError("OpenWeather rejected the API key (401). Check WEATHER_API_KEY.")

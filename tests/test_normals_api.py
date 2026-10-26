@@ -116,3 +116,28 @@ def test_overview_with_a_new_location_without_data(client):
 def test_runs_report_their_kinds(client):
     seed()
     assert "kinds" in client.get("/api/collection-runs/latest").json()
+
+
+def test_overview_range_covers_the_whole_day(client):
+    from datetime import UTC, datetime, timedelta
+
+    from src.database import repository
+    from src.database.models import WeatherObservation
+
+    def reading(at, temp):
+        return WeatherObservation(
+            location_id=loc.id, observed_at=at, temp=temp, feels_like=temp, humidity=50
+        )
+
+    now = datetime.now(UTC)
+    midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    with session_scope() as session:
+        loc = repository.add_location(session, name="Accra", country="GH", lat=5.6, lon=-0.19)
+        loc.utc_offset_seconds = 0
+        # The day's warmest reading came hours ago; the latest is much cooler.
+        for minutes, temp in [(60, 15.0), (120, 22.0), (180, 12.0)]:
+            session.add(reading(midnight + timedelta(minutes=minutes), temp))
+        # Yesterday doesn't count.
+        session.add(reading(midnight - timedelta(hours=2), 30.0))
+    [item] = client.get("/api/overview").json()
+    assert item["today"] == {"high": 22.0, "low": 12.0}
