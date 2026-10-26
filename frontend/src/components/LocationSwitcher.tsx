@@ -56,8 +56,9 @@ function LocationSearch({ items }: { items: OverviewItem[] }) {
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'ArrowDown') {
       event.preventDefault()
-      setOpen(true)
-      setHighlight((h) => Math.min(h + 1, options.length - 1))
+      // Opening the list lands on the first result; after that, move down.
+      if (!open) setOpen(true)
+      else setHighlight((h) => Math.min(h + 1, options.length - 1))
     } else if (event.key === 'ArrowUp') {
       event.preventDefault()
       setHighlight((h) => Math.max(h - 1, 0))
@@ -136,6 +137,7 @@ export function LocationSwitcher({
   activeId,
 }: {
   items: OverviewItem[]
+  /** The location being viewed, if any. */
   activeId?: number
 }) {
   const { units } = usePreferences()

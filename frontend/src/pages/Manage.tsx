@@ -9,17 +9,17 @@ import { errorText } from '../lib/errors'
 
 function useCollection() {
   const queryClient = useQueryClient()
-  // When we last started a run; polls the latest run until one that began after it finishes.
-  const [startedAt, setStartedAt] = useState<number | null>(null)
+  // The latest run's id when we asked for a new one (0 if none); polls the latest
+  // run until a newer one finishes. Run ids, unlike clocks, can't disagree.
+  const [after, setAfter] = useState<number | null>(null)
   const isFinished = (run: CollectionRun | null | undefined) =>
-    startedAt !== null && run?.finished_at != null && Date.parse(run.started_at) >= startedAt - 5000
+    after !== null && run?.finished_at != null && run.id > after
   const run = useQuery({
     ...latestRunQuery(),
-    refetchInterval: (query) =>
-      startedAt !== null && !isFinished(query.state.data) ? 2000 : false,
+    refetchInterval: (query) => (after !== null && !isFinished(query.state.data) ? 2000 : false),
   })
   const finished = isFinished(run.data)
-  const running = startedAt !== null && !finished
+  const running = after !== null && !finished
 
   useEffect(() => {
     // New observations, forecasts and history for every location.
@@ -28,8 +28,8 @@ function useCollection() {
 
   const start = useMutation({
     mutationFn: (locationIds?: number[]) => api.collect(locationIds),
-    onMutate: () => setStartedAt(Date.now()),
-    onError: () => setStartedAt(null),
+    onMutate: () => setAfter(run.data?.id ?? 0),
+    onError: () => setAfter(null),
   })
 
   return { start, running, latest: run.data }

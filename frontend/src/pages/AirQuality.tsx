@@ -1,17 +1,16 @@
 import { Chart } from '@tanstack/charts/react'
 import { useQuery } from '@tanstack/react-query'
-import { getRouteApi } from '@tanstack/react-router'
 import { useMemo } from 'react'
 
 import { airQualityQuery } from '../api/queries'
 import { particulateChart, pollutantChart, type ParticulateRow } from '../charts/definitions'
 import { ChartCard } from '../components/ChartCard'
 import { ErrorNotice, Loading, Notice } from '../components/States'
+import { useLocation } from '../lib/useLocation'
 import { aqiLevel, POLLUTANTS } from '../lib/aqi'
 import { formatDayTime, toLocationTime } from '../lib/time'
 import { usePreferences } from '../preferences-context'
 
-const locationRoute = getRouteApi('/locations/$locationId')
 
 // Shape plus label, so the level never depends on color alone.
 const ICONS = { good: '●', warning: '▲', serious: '▲', critical: '■' } as const
@@ -32,7 +31,7 @@ export function AqiStatus({ aqi }: { aqi: number }) {
 }
 
 export function AirQualityPage() {
-  const location = locationRoute.useLoaderData()
+  const location = useLocation()
   const { palette } = usePreferences()
   const { data, isPending, error, refetch } = useQuery(airQualityQuery(location.id, 7))
   const offset = location.utc_offset_seconds

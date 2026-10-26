@@ -12,13 +12,13 @@ import { columnHelper } from '../components/table'
 import { Segmented } from '../components/Segmented'
 import { ErrorNotice, Loading, Notice } from '../components/States'
 import { Tile } from '../components/Tile'
+import { useLocation } from '../lib/useLocation'
 import { HISTORY_PERIODS } from '../lib/periods'
 import { formatDate, parseDate } from '../lib/time'
 import { completeMonthlyTotals, historyStats, lastDays, toCsv } from '../lib/transform'
 import type { Units } from '../lib/units'
 import { usePreferences } from '../preferences-context'
 
-const locationRoute = getRouteApi('/locations/$locationId')
 const historyRoute = getRouteApi('/locations/$locationId/history')
 const helper = columnHelper<DailyHistory>()
 
@@ -77,11 +77,12 @@ function downloadCsv(rows: readonly DailyHistory[], units: Units, filename: stri
   link.href = url
   link.download = filename
   link.click()
-  URL.revokeObjectURL(url)
+  // Revoking straight away can cancel the download in some browsers.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
 export function HistoryPage() {
-  const location = locationRoute.useLoaderData()
+  const location = useLocation()
   const { units, palette } = usePreferences()
   const navigate = useNavigate({ from: '/locations/$locationId/history' })
   const { period = '1y' } = historyRoute.useSearch()

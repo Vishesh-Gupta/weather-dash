@@ -92,6 +92,45 @@ describe('visitor views', () => {
     expect(within(hours).getByText('80%')).toBeInTheDocument()
   })
 
+  it('says plainly when readings have stopped updating', async () => {
+    // Four days after the fixture readings, with a forecast issued the same day.
+    vi.setSystemTime(new Date('2026-10-25T14:00:00Z'))
+    mockApi()
+    renderApp('/locations/1')
+    const hero = await screen.findByRole('region', { name: /Current weather in Toronto/ })
+    expect(
+      within(hero)
+        .getByText(/^Not updating/)
+        .closest('p'),
+    ).toHaveTextContent(
+      'Not updating. No new readings since Wed 21 Oct, 10:00 local time (4 days ago)',
+    )
+    expect(hero).toHaveClass('is-stale')
+    // The old forecast is no longer shown as the next 24 hours.
+    expect(screen.queryByRole('region', { name: 'Next 24 hours' })).toBeNull()
+    expect(screen.getByRole('region', { name: 'Precipitation' })).toHaveTextContent(
+      'No forecast for the next few hours',
+    )
+  })
+
+  it('marks stale locations on the overview', async () => {
+    vi.setSystemTime(new Date('2026-10-25T14:00:00Z'))
+    mockApi()
+    renderApp('/')
+    const card = await screen.findByRole('link', { name: /Toronto.*Not updating/s })
+    expect(card).toHaveClass('is-stale')
+    // Days-old readings can't vouch for today's range.
+    expect(within(card).queryByText(/^H \d/)).toBeNull()
+  })
+
+  it("doesn't flag fresh readings", async () => {
+    mockApi()
+    renderApp('/locations/1')
+    const hero = await screen.findByRole('region', { name: /Current weather in Toronto/ })
+    expect(hero).not.toHaveClass('is-stale')
+    expect(within(hero).queryByText(/Not updating/)).toBeNull()
+  })
+
   it('remembers the unit preference', async () => {
     window.localStorage.setItem('units', 'imperial')
     mockApi()

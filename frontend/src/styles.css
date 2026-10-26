@@ -155,7 +155,7 @@ h3 {
 .on-sky {
   display: inline-block;
   padding: 4px 12px;
-  border-radius: 999px;
+  border-radius: 14px;
   background: var(--glass);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
@@ -1209,6 +1209,31 @@ table.data tbody tr:last-child td {
   }
 }
 
+/* --- Not updating ------------------------------------------------------------------
+   When collection has stopped, say so plainly and dim the old values so they aren't
+   mistaken for current weather. */
+
+.stale-notice {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(250, 178, 25, 0.5);
+  background: rgba(250, 178, 25, 0.14);
+  color: #ffe2a8;
+  font-size: 0.9375rem;
+}
+
+.stale-notice strong {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.is-stale .hero-now,
+.is-stale .card-temp,
+.is-stale .card-stats {
+  opacity: 0.6;
+}
+
 /* --- Next 24 hours ------------------------------------------------------------------ */
 
 .next-hours {
@@ -1298,6 +1323,24 @@ table.data tbody tr:last-child td {
 /* --- Small screens ------------------------------------------------------------------ */
 
 @media (max-width: 640px) {
+  .instruments {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .instrument {
+    min-height: 0;
+    padding: 12px;
+  }
+
+  .instrument-body {
+    flex-wrap: wrap;
+  }
+
+  .instrument-value {
+    font-size: 1.625rem;
+  }
+
   .topbar,
   .main {
     padding-left: 16px;
