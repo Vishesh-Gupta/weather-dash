@@ -11,7 +11,6 @@ import { aqiLevel, POLLUTANTS } from '../lib/aqi'
 import { formatDayTime, toLocationTime } from '../lib/time'
 import { usePreferences } from '../preferences-context'
 
-
 // Shape plus label, so the level never depends on color alone.
 const ICONS = { good: '●', warning: '▲', serious: '▲', critical: '■' } as const
 
